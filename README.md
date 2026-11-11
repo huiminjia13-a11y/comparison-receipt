@@ -4,13 +4,10 @@
 
 ## 在线打开（手机 / 电脑同一链接）
 
-**立刻可玩（已验证）：** https://quick-tin-vws2x8y.tmp.now/  
-（临时公开部署；过期后见下方持久方案）
+**主链（HTTPS · 立刻分享）：** https://huiminjia13-a11y.github.io/comparison-receipt/  
 
-**持久 GitHub Pages（目标址）：** https://huiminjia13-a11y.github.io/comparison-receipt/  
-仓库改 **Public** 后，在 Settings → Pages 选 GitHub Actions；`main` 上已有 `.github/workflows/pages.yml`。
-
-手机与电脑用同一地址即可。
+手机与电脑用同一地址。只用 `https://`，不要发裸 `http://`。  
+大陆加速 + 免费 + 无 ICP + 无需腾讯登录目前做不到；GitHub Pages 为当前主镜像。EdgeOne 配置已预留（可选，见 `docs/edgeone-china.md`）。
 
 ## 慧敏怎么打开（本地）
 

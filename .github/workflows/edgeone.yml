@@ -1,0 +1,52 @@
+name: Deploy EdgeOne Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: edgeone
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check EdgeOne token
+        id: check
+        env:
+          EDGEONE_API_TOKEN: ${{ secrets.EDGEONE_API_TOKEN }}
+        run: |
+          if [ -z "$EDGEONE_API_TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "EDGEONE_API_TOKEN missing — skip EdgeOne (GitHub Pages unaffected)."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.11.0"
+
+      - name: Prepare publish directory
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          mkdir -p _edgeone
+          cp index.html app.js styles.css .nojekyll _edgeone/
+
+      - name: Deploy to EdgeOne Makers
+        if: steps.check.outputs.skip != 'true'
+        env:
+          EDGEONE_API_TOKEN: ${{ secrets.EDGEONE_API_TOKEN }}
+        # Free-tier static mirror; keeps GoatCounter scripts in index.html as-is.
+        # --site china targets 中国站 / mainland-capable workspace when token is from 腾讯云.
+        run: >
+          npx --yes edgeone@1.7.2 makers deploy ./_edgeone
+          -n comparison-receipt
+          -t "$EDGEONE_API_TOKEN"
+          --site china
