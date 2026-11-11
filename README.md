@@ -35,13 +35,17 @@
 
 ### 慧敏怎么读匿名用量（owner）
 
-免费计数服务 [Abacus](https://abacus.jasoncameron.dev)（CountAPI 继任），命名空间 `huiminjia13-comparison-receipt`。浏览器或终端直接打开即可看当前数字（只读，不递增）：
+**国内可开（推荐）：** https://huiminjia13-a11y.github.io/comparison-receipt/stats.html  
+
+同源只读页，读本站 `stats.json`（打开 / 打票 / 粗情绪桶）。GitHub Action 定时从 Abacus 镜像；**不存票面**。公开链接总表见 [`docs/receipt-public-links.md`](docs/receipt-public-links.md)。
+
+Abacus 仍是增量源（CountAPI 继任），命名空间 `huiminjia13-comparison-receipt`。境外可直读（国内常被拦）：
 
 - 累计打开：https://abacus.jasoncameron.dev/get/huiminjia13-comparison-receipt/opens  
 - 累计打票：https://abacus.jasoncameron.dev/get/huiminjia13-comparison-receipt/prints  
 - 情绪桶（例·酸）：https://abacus.jasoncameron.dev/get/huiminjia13-comparison-receipt/emo-suan  
 
-其余桶 key：`emo-bufu` / `emo-xiang` / `emo-qi` / `emo-kong` / `emo-qita`。没有独立登录后台；数字对知道 URL 的人可见，勿当机密。
+其余桶 key：`emo-bufu` / `emo-xiang` / `emo-qi` / `emo-kong` / `emo-qita`。数字对知道 URL 的人可见，勿当机密。
 
 ## 云桌面 / 电脑怎么打中文（离线）
 

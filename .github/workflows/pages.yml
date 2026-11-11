@@ -17,10 +17,78 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Prepare publish directory
         run: |
           mkdir -p _site
-          cp index.html app.js styles.css .nojekyll _site/
+          cp index.html app.js styles.css .nojekyll stats.html stats.json _site/
+
+      - name: Refresh stats.json from Abacus (best effort)
+        env:
+          NS: huiminjia13-comparison-receipt
+          BASE: https://abacus.jasoncameron.dev
+        run: |
+          set -euo pipefail
+          get_value() {
+            local key="$1"
+            local body code
+            local attempt
+            for attempt in 1 2 3; do
+              # Do not use curl -f: 404 "Key not found" is a valid empty counter.
+              code="$(curl -sS -o /tmp/abacus-body.json -w "%{http_code}" --max-time 20 "${BASE}/get/${NS}/${key}" || echo 000)"
+              body="$(cat /tmp/abacus-body.json 2>/dev/null || true)"
+              if [ "$code" = "200" ] && echo "$body" | grep -q '"value"'; then
+                echo "$body" | python3 -c 'import json,sys; print(int(json.load(sys.stdin).get("value") or 0))'
+                return 0
+              fi
+              if [ "$code" = "404" ] || echo "$body" | grep -qi 'not found\|Key not found'; then
+                echo 0
+                return 0
+              fi
+              sleep $((attempt * 2))
+            done
+            return 1
+          }
+
+          opens="$(get_value opens)" || opens=""
+          prints="$(get_value prints)" || prints=""
+          if [ -z "${opens}" ] || [ -z "${prints}" ]; then
+            echo "Abacus unreachable; keeping committed stats.json"
+            exit 0
+          fi
+
+          suan="$(get_value emo-suan || echo 0)"
+          bufu="$(get_value emo-bufu || echo 0)"
+          xiang="$(get_value emo-xiang || echo 0)"
+          qi="$(get_value emo-qi || echo 0)"
+          kong="$(get_value emo-kong || echo 0)"
+          qita="$(get_value emo-qita || echo 0)"
+          updated="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          python3 - <<PY
+          import json
+          data = {
+            "namespace": "${NS}",
+            "updatedAt": "${updated}",
+            "source": "abacus",
+            "opens": int("${opens}"),
+            "prints": int("${prints}"),
+            "emotions": {
+              "酸": int("${suan}"),
+              "不服": int("${bufu}"),
+              "想": int("${xiang}"),
+              "气": int("${qi}"),
+              "空": int("${kong}"),
+              "其他": int("${qita}"),
+            },
+            "note": "Anonymous lifetime totals only. No ticket content. Abacus remains source of truth for increments.",
+          }
+          with open("_site/stats.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+          print(json.dumps(data, ensure_ascii=False, indent=2))
+          PY
+
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:

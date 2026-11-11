@@ -1,0 +1,97 @@
+name: Sync Abacus stats mirror
+
+# Periodically mirrors anonymous Abacus totals into same-origin stats.json on
+# gh-pages so the China-reachable stats page does not call abacus.jasoncameron.dev.
+
+on:
+  schedule:
+    # GitHub may delay cron; still enough for owner-facing totals.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-stats
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Abacus counters → stats.json
+        env:
+          NS: huiminjia13-comparison-receipt
+          BASE: https://abacus.jasoncameron.dev
+        run: |
+          set -euo pipefail
+          mkdir -p _mirror
+
+          get_value() {
+            local key="$1"
+            local body code
+            local attempt
+            for attempt in 1 2 3 4; do
+              # Do not use curl -f: 404 "Key not found" is a valid empty counter.
+              code="$(curl -sS -o /tmp/abacus-body.json -w "%{http_code}" --max-time 20 "${BASE}/get/${NS}/${key}" || echo 000)"
+              body="$(cat /tmp/abacus-body.json 2>/dev/null || true)"
+              if [ "$code" = "200" ] && echo "$body" | grep -q '"value"'; then
+                echo "$body" | python3 -c 'import json,sys; print(int(json.load(sys.stdin).get("value") or 0))'
+                return 0
+              fi
+              # Missing key → treat as 0 (never hit yet)
+              if [ "$code" = "404" ] || echo "$body" | grep -qi 'not found\|Key not found'; then
+                echo 0
+                return 0
+              fi
+              sleep $((attempt * 2))
+            done
+            echo "WARN: failed to read ${key}; defaulting to 0" >&2
+            echo 0
+          }
+
+          opens="$(get_value opens)"
+          prints="$(get_value prints)"
+          suan="$(get_value emo-suan)"
+          bufu="$(get_value emo-bufu)"
+          xiang="$(get_value emo-xiang)"
+          qi="$(get_value emo-qi)"
+          kong="$(get_value emo-kong)"
+          qita="$(get_value emo-qita)"
+          updated="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          python3 - <<PY
+          import json
+          data = {
+            "namespace": "${NS}",
+            "updatedAt": "${updated}",
+            "source": "abacus",
+            "opens": int("${opens}"),
+            "prints": int("${prints}"),
+            "emotions": {
+              "酸": int("${suan}"),
+              "不服": int("${bufu}"),
+              "想": int("${xiang}"),
+              "气": int("${qi}"),
+              "空": int("${kong}"),
+              "其他": int("${qita}"),
+            },
+            "note": "Anonymous lifetime totals only. No ticket content. Abacus remains source of truth for increments.",
+          }
+          with open("_mirror/stats.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+          print(json.dumps(data, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Publish stats.json to gh-pages (keep other site files)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_mirror
+          destination_dir: .
+          keep_files: true
+          force_orphan: false
+          enable_jekyll: false
+          commit_message: "chore: mirror Abacus stats.json for China-reachable page"
