@@ -258,6 +258,32 @@ fieldset {
   gap: 10px;
 }
 
+fieldset.optional-bite {
+  margin-top: 4px;
+  padding: 12px 12px 10px;
+  border: 1px dashed #4a433a;
+  background: rgba(28, 25, 20, 0.45);
+  gap: 8px;
+}
+
+fieldset.optional-bite legend {
+  padding: 0 2px;
+}
+
+.opt-tag {
+  margin-left: 6px;
+  color: #9a8f7c;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.opt-lede {
+  margin: 0;
+  color: #9a8f7c;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 legend,
 .field > span {
   font-size: 14px;

@@ -11,22 +11,22 @@
 <body>
   <button type="button" class="sound-toggle" id="sound-toggle" aria-pressed="true">声音 开</button>
   <div id="app" data-screen="landing">
-    <header class="mast">夜间比较受理处</header>
+    <header class="mast">夜间小票受理处</header>
 
     <section class="screen" data-screen="landing" aria-labelledby="landing-title">
       <p class="kicker">不是测试 · 不算命</p>
       <h1 id="landing-title">今晚的比较小票</h1>
-      <p class="lede">把你刚才那口比较打成一张热敏小票，然后归档，或撕掉。</p>
+      <p class="lede">今天你想到了谁？写下来打成一张热敏小票。要比一口也可以，不要也行。然后归档，或撕掉。</p>
       <div class="hero-slip" aria-hidden="true">
         <span class="hero-rule"></span>
-        <span>对象　　某个「同龄人」</span>
+        <span>想到　　过去的自己</span>
         <span>合计　　注意力 × 1</span>
         <span class="hero-rule"></span>
         <span class="hero-total">已付，无法退款</span>
       </div>
       <button type="button" class="btn primary" id="btn-start">开始打票</button>
       <button type="button" class="btn ghost" id="btn-open-drawer">本周抽屉</button>
-      <p class="fine">只存在这台设备上。没有账号。</p>
+      <p class="fine">只存在这台设备上。没有账号。默认不分享。</p>
       <p class="disclaimer">不是心理咨询、不算命、不保证心情变好。</p>
     </section>
 
@@ -34,23 +34,18 @@
       <h1 id="form-title" class="screen-title">打票</h1>
 
       <fieldset>
-        <legend>你刚才在和谁比？</legend>
-        <div class="chips" id="who-chips" role="radiogroup" aria-label="比较对象"></div>
+        <legend>今天你想到了谁？</legend>
+        <div class="chips" id="who-chips" role="radiogroup" aria-label="想到了谁"></div>
         <label class="field">
           <span>写一下是谁（可不填）</span>
           <input id="who-name" type="text" maxlength="20" placeholder="名字、称呼，或不写" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
           <div class="suggest-chips" id="who-name-suggest" data-for="who-name" aria-label="常用称呼"></div>
         </label>
-        <label class="field">
-          <span>对方有什么（可不填）</span>
-          <input id="they-have" type="text" maxlength="40" placeholder="房子 / 签证 / 对象 / 看起来很确定的人生" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
-          <div class="suggest-chips" id="they-have-suggest" data-for="they-have" aria-label="常用词"></div>
-        </label>
       </fieldset>
 
       <label class="field">
-        <span>这一口比较，你此刻的感觉（必填，填了才能打印）</span>
-        <input id="feeling" type="text" maxlength="40" placeholder="酸、空、来不及、说不清……随便写一行" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
+        <span>想到 TA 时，你此刻的感觉（必填，填了才能打印）</span>
+        <input id="feeling" type="text" maxlength="40" placeholder="气、想、酸、空、说不清……随便写一行" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
         <div class="suggest-chips" id="feeling-suggest" data-for="feeling" aria-label="常用感觉"></div>
         <div class="pinyin-box" id="feeling-pinyin" hidden>
           <p class="pinyin-tip">拼音候选（离线）· 点一下填入</p>
@@ -60,14 +55,24 @@
       </label>
 
       <fieldset>
-        <legend>这口比较在你身上停了多久？</legend>
+        <legend>这念头在你身上停了多久？</legend>
         <div class="chips" id="duration-chips" role="radiogroup" aria-label="停留多久"></div>
       </fieldset>
 
+      <fieldset class="optional-bite" id="compare-optional">
+        <legend>要比一口也可以 <span class="opt-tag">可不填 · 跳过照样打印</span></legend>
+        <p class="opt-lede">不是必须。有一口比较就写；没有就空着。</p>
+        <label class="field">
+          <span>比什么 / 对方有什么（可不填）</span>
+          <input id="they-have" type="text" maxlength="40" placeholder="房子 / 签证 / 看起来很确定的人生 / 或不写" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
+          <div class="suggest-chips" id="they-have-suggest" data-for="they-have" aria-label="比较一口常用词"></div>
+        </label>
+      </fieldset>
+
       <button type="button" class="btn primary is-wait" id="btn-print" aria-disabled="true">先写感觉</button>
-      <p class="print-hint" id="print-hint" hidden>写一个词就行，比如：酸</p>
+      <p class="print-hint" id="print-hint" hidden>写一个词就行，比如：想</p>
       <button type="button" class="btn ghost" id="btn-form-back">返回</button>
-      <p class="disclaimer">不打分。不解释你是哪种人。</p>
+      <p class="disclaimer">不打分。不解释你是哪种人。比较不是门槛。</p>
     </section>
 
     <section class="screen" data-screen="ticket" aria-live="polite">
@@ -250,7 +255,7 @@
 
   <div id="share-sheet" class="share-sheet" hidden>
     <p class="share-sheet-title">今晚的账单</p>
-    <p class="share-sheet-copy">对象和感觉打成 ████。没有排行榜。</p>
+    <p class="share-sheet-copy">想到的人和感觉打成 ████。没有排行榜。默认不分享。</p>
     <button type="button" class="btn primary" id="btn-share-native">分享</button>
     <button type="button" class="btn ghost" id="btn-share-copy">复制文案</button>
     <button type="button" class="btn ghost" id="btn-share-download">下载图片</button>

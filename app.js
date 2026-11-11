@@ -2,36 +2,42 @@
   "use strict";
 
   var STORAGE_KEY = "tonight-comparison-receipt-v1";
+  /* 想到了谁：前任只是其中一种，不是主题 */
   var WHO = [
-    { id: "classmate", label: "同学 / 同事" },
-    { id: "moments", label: "朋友圈里的某人" },
-    { id: "peer", label: "某个「同龄人」" },
     { id: "past", label: "过去的自己" },
+    { id: "friend", label: "朋友" },
+    { id: "classmate", label: "同学 / 同事" },
+    { id: "ex", label: "前任" },
+    { id: "sudden", label: "突然冒出来的人" },
     { id: "anon", label: "不想说是谁（匿名）" }
   ];
   var DURATIONS = [
-    { id: "seconds", label: "刷到的那几秒" },
+    { id: "seconds", label: "刚想到的那几秒" },
     { id: "tonight", label: "今晚反复想起" },
     { id: "days", label: "已经好几天" }
   ];
 
-  /* 常用词 / 拼一句：离线点选，给没装 IME 的云桌面用 */
+  /* 常用词 / 拼一句：离线点选；气与想都可以 */
   var FEELING_WORDS = [
-    "酸", "空", "来不及", "说不清", "憋", "慌", "闷", "烦",
-    "羡慕", "委屈", "麻", "累", "不服", "空落落", "发紧", "酸胀"
+    "想", "气", "酸", "空", "来不及", "说不清", "憋", "慌", "闷", "烦",
+    "惦记", "委屈", "麻", "累", "不服", "空落落", "发紧", "酸胀"
   ];
   var FEELING_PHRASES = [
-    "心里一紧", "说不上来", "又酸又空", "有点不服", "突然很累"
+    "心里一紧", "说不上来", "又气又想", "又酸又空", "突然很累", "没人可比"
   ];
   var WHO_NAME_WORDS = [
-    "他", "她", "那个同学", "以前的自己", "朋友圈某人", "同事"
+    "他", "她", "朋友", "以前的自己", "突然想到的人", "同事", "旧人"
   ];
   var THEY_HAVE_WORDS = [
-    "房子", "签证", "对象", "工作", "看起来很确定的人生", "钱", "胆子"
+    "房子", "签证", "工作", "看起来很确定的人生", "钱", "胆子", "自由"
   ];
 
-  /* 轻量拼音→感觉词（静态、无网络）；只覆盖常用感觉 */
+  /* 轻量拼音→感觉词（静态、无网络）；气 / 想 / 酸 都覆盖 */
   var PINYIN_FEELING = {
+    xiang: ["想"],
+    qi: ["气"],
+    nu: ["气"],
+    dianji: ["惦记"],
     suan: ["酸", "酸胀"],
     kong: ["空", "空落落"],
     kongluoluo: ["空落落"],
@@ -59,6 +65,10 @@
     suankong: ["又酸又空"],
     yousuanyouk: ["又酸又空"],
     yousuanyoukong: ["又酸又空"],
+    youqiyouxiang: ["又气又想"],
+    qixiang: ["又气又想"],
+    meirenkeibi: ["没人可比"],
+    meiren: ["没人可比"],
     shuobushanglai: ["说不上来"]
   };
 
@@ -87,8 +97,8 @@
   var shareStatus = document.getElementById("share-status");
   var shareBtn = document.getElementById("btn-share-ticket");
   var shareKind = "ticket";
-  var SHARE_TEXT_TICKET = "今晚的账单。对象 ████  感觉 ████";
-  var SHARE_TEXT_TEAR = "今晚撕了一张。对象 ████  感觉 ████";
+  var SHARE_TEXT_TICKET = "今晚的账单。想到 ████  感觉 ████";
+  var SHARE_TEXT_TEAR = "今晚撕了一张。想到 ████  感觉 ████";
   var PET_NAME_KEY = "tonight-comparison-receipt-pet-name";
 
   var state = {
@@ -482,16 +492,19 @@
   }
 
   function printReady() {
+    /* 比较（they-have）从不挡打印；门槛是想到了谁 + 感觉 + 停留 */
     return Boolean(selectedId(whoChips) && feeling.value.trim() && selectedId(durationChips));
   }
 
   function syncPrintEnabled() {
+    var hasWho = Boolean(selectedId(whoChips));
     var hasFeeling = Boolean(feeling.value.trim());
     var hasDuration = Boolean(selectedId(durationChips));
     var ok = printReady();
     btnPrint.setAttribute("aria-disabled", ok ? "false" : "true");
     btnPrint.classList.toggle("is-wait", !ok);
-    if (!hasFeeling) btnPrint.textContent = "先写感觉";
+    if (!hasWho) btnPrint.textContent = "先选想到了谁";
+    else if (!hasFeeling) btnPrint.textContent = "先写感觉";
     else if (!hasDuration) btnPrint.textContent = "先选停留多久";
     else btnPrint.textContent = "打印";
     if (hasFeeling && printHint) printHint.hidden = true;
@@ -589,14 +602,14 @@
   function receiptHtml(ticket) {
     var have = (ticket.theyHave || "").trim();
     var haveRow = have
-      ? '<div class="row"><span class="k">对方有</span><span>' + escapeHtml(have) + "</span></div>"
+      ? '<div class="row"><span class="k">比一口</span><span>' + escapeHtml(have) + "</span></div>"
       : "";
     return (
       '<div class="receipt-head">今晚的比较小票</div>' +
-      '<div class="receipt-sub">夜间比较受理处 · 热敏存根</div>' +
+      '<div class="receipt-sub">夜间小票受理处 · 热敏存根</div>' +
       '<div class="dash"></div>' +
       '<div class="row"><span class="k">时间</span><span>' + escapeHtml(ticket.clock) + "</span></div>" +
-      '<div class="row"><span class="k">对象</span><span>' + escapeHtml(objectLine(ticket)) + "</span></div>" +
+      '<div class="row"><span class="k">想到</span><span>' + escapeHtml(objectLine(ticket)) + "</span></div>" +
       haveRow +
       '<div class="row"><span class="k">感觉</span><span>' + escapeHtml(ticket.feeling) + "</span></div>" +
       '<div class="row"><span class="k">停留</span><span>' + escapeHtml(ticket.durationLabel) + "</span></div>" +
@@ -901,23 +914,30 @@
     settleSlip.innerHTML =
       '<div class="settle-head">本周结算单</div>' +
       '<div class="dash"></div>' +
-      '<div class="row"><span class="k">比较</span><span>' + n + "</span></div>" +
+      '<div class="row"><span class="k">出票</span><span>' + n + "</span></div>" +
       '<div class="row"><span class="k">归档</span><span>' + x + "</span></div>" +
       '<div class="row"><span class="k">撕掉</span><span>' + y + "</span></div>" +
       '<div class="dash"></div>' +
-      '<div class="row"><span class="k">最常对象</span><span>' + escapeHtml(who) + "</span></div>" +
+      '<div class="row"><span class="k">最常想到</span><span>' + escapeHtml(who) + "</span></div>" +
       '<div class="row"><span class="k">最常时段</span><span>' + escapeHtml(slot) + "</span></div>" +
       '<div class="row"><span class="k">最常感觉</span><span>' + escapeHtml(feel) + "</span></div>" +
       '<div class="dash"></div>' +
-      '<div class="settle-foot">撕掉的不留底。本机构不评价。</div>';
+      '<div class="settle-foot">撕掉的不留底。本机构不评价。比较不是门槛。</div>';
 
     drawerList.innerHTML = "";
+    if (!tickets.length) {
+      var empty = document.createElement("li");
+      empty.className = "drawer-empty";
+      empty.textContent = "本周还没有归档的票。想到谁就打一张；比较可跳过。";
+      drawerList.appendChild(empty);
+      return;
+    }
     tickets
       .slice()
       .reverse()
       .forEach(function (t) {
         var li = document.createElement("li");
-        var extra = t.theyHave ? " · " + t.theyHave : "";
+        var extra = t.theyHave ? " · 比一口 " + t.theyHave : "";
         li.innerHTML =
           '<div class="meta">' +
           escapeHtml(t.date) +
@@ -1223,7 +1243,7 @@
     ctx.fillText(kind === "tear" ? "今晚撕了一张" : "今晚的账单", w / 2, y + 80);
     ctx.fillStyle = "#4a453c";
     ctx.font = "22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
-    ctx.fillText("夜间比较受理处 · 热敏存根", w / 2, y + 120);
+    ctx.fillText("夜间小票受理处 · 热敏存根", w / 2, y + 120);
 
     function dash(yy) {
       ctx.strokeStyle = "#cfc6b4";
@@ -1247,7 +1267,7 @@
     ctx.fillStyle = "#1c1a16";
     ctx.fillText("注意力 × 1", x + 160, y + 260);
     ctx.fillStyle = "#4a453c";
-    ctx.fillText("对象", x + 56, y + 310);
+    ctx.fillText("想到", x + 56, y + 310);
     ctx.fillStyle = "#1c1a16";
     ctx.fillText("████", x + 160, y + 310);
     ctx.fillStyle = "#4a453c";
@@ -1288,7 +1308,7 @@
 
     ctx.fillStyle = "rgba(232, 195, 122, 0.55)";
     ctx.font = "16px PingFang SC, sans-serif";
-    ctx.fillText((kind === "tear" ? "今晚撕了一张" : "今晚的账单") + "  ·  对象 ████  感觉 ████", w / 2, h - 64);
+    ctx.fillText((kind === "tear" ? "今晚撕了一张" : "今晚的账单") + "  ·  想到 ████  感觉 ████", w / 2, h - 64);
     return canvas;
   }
 
@@ -1352,7 +1372,7 @@
     var text = shareCaption();
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () {
-        setShareStatus("已复制：不含对象与感受。");
+        setShareStatus("已复制：不含想到的人与感受。");
       }).catch(function () {
         fallbackCopy(text);
       });
@@ -1368,7 +1388,7 @@
     ta.select();
     try {
       document.execCommand("copy");
-      setShareStatus("已复制：不含对象与感受。");
+      setShareStatus("已复制：不含想到的人与感受。");
     } catch (e) {
       setShareStatus(text);
     }
@@ -1390,7 +1410,7 @@
       a.click();
       document.body.removeChild(a);
       later(function () { URL.revokeObjectURL(url); }, 1500);
-      setShareStatus("已下载图片：不含对象与感受。");
+      setShareStatus("已下载图片：不含想到的人与感受。");
     });
   }
 
