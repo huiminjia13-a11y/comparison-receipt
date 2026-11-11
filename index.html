@@ -38,17 +38,25 @@
         <div class="chips" id="who-chips" role="radiogroup" aria-label="比较对象"></div>
         <label class="field">
           <span>写一下是谁（可不填）</span>
-          <input id="who-name" type="text" maxlength="20" placeholder="名字、称呼，或不写" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false">
+          <input id="who-name" type="text" maxlength="20" placeholder="名字、称呼，或不写" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
+          <div class="suggest-chips" id="who-name-suggest" data-for="who-name" aria-label="常用称呼"></div>
         </label>
         <label class="field">
           <span>对方有什么（可不填）</span>
-          <input id="they-have" type="text" maxlength="40" placeholder="房子 / 签证 / 对象 / 看起来很确定的人生" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false">
+          <input id="they-have" type="text" maxlength="40" placeholder="房子 / 签证 / 对象 / 看起来很确定的人生" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
+          <div class="suggest-chips" id="they-have-suggest" data-for="they-have" aria-label="常用词"></div>
         </label>
       </fieldset>
 
       <label class="field">
         <span>这一口比较，你此刻的感觉（必填，填了才能打印）</span>
-        <input id="feeling" type="text" maxlength="40" placeholder="酸、空、来不及、说不清……随便写一行" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false">
+        <input id="feeling" type="text" maxlength="40" placeholder="酸、空、来不及、说不清……随便写一行" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
+        <div class="suggest-chips" id="feeling-suggest" data-for="feeling" aria-label="常用感觉"></div>
+        <div class="pinyin-box" id="feeling-pinyin" hidden>
+          <p class="pinyin-tip">拼音候选（离线）· 点一下填入</p>
+          <div class="suggest-chips" id="feeling-pinyin-list" role="listbox" aria-label="拼音候选"></div>
+        </div>
+        <p class="cjk-tip">云桌面若没有中文输入法：点上面的词，或手机打好再粘贴进来。</p>
       </label>
 
       <fieldset>

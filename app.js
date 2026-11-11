@@ -15,6 +15,53 @@
     { id: "days", label: "已经好几天" }
   ];
 
+  /* 常用词 / 拼一句：离线点选，给没装 IME 的云桌面用 */
+  var FEELING_WORDS = [
+    "酸", "空", "来不及", "说不清", "憋", "慌", "闷", "烦",
+    "羡慕", "委屈", "麻", "累", "不服", "空落落", "发紧", "酸胀"
+  ];
+  var FEELING_PHRASES = [
+    "心里一紧", "说不上来", "又酸又空", "有点不服", "突然很累"
+  ];
+  var WHO_NAME_WORDS = [
+    "他", "她", "那个同学", "以前的自己", "朋友圈某人", "同事"
+  ];
+  var THEY_HAVE_WORDS = [
+    "房子", "签证", "对象", "工作", "看起来很确定的人生", "钱", "胆子"
+  ];
+
+  /* 轻量拼音→感觉词（静态、无网络）；只覆盖常用感觉 */
+  var PINYIN_FEELING = {
+    suan: ["酸", "酸胀"],
+    kong: ["空", "空落落"],
+    kongluoluo: ["空落落"],
+    laibuji: ["来不及"],
+    shuo: ["说不清"],
+    shuoqingchu: ["说不清"],
+    buqingchu: ["说不清"],
+    bie: ["憋"],
+    huang: ["慌"],
+    men: ["闷"],
+    fan: ["烦"],
+    xianmu: ["羡慕"],
+    weiqu: ["委屈"],
+    ma: ["麻"],
+    lei: ["累"],
+    bufu: ["不服"],
+    fajin: ["发紧"],
+    suanzhang: ["酸胀"],
+    xinli: ["心里一紧"],
+    xinliyijin: ["心里一紧"],
+    youdian: ["有点不服"],
+    youdianbufu: ["有点不服"],
+    tufan: ["突然很累"],
+    turanhenlei: ["突然很累"],
+    suankong: ["又酸又空"],
+    yousuanyouk: ["又酸又空"],
+    yousuanyoukong: ["又酸又空"],
+    shuobushanglai: ["说不上来"]
+  };
+
   var app = document.getElementById("app");
   var whoChips = document.getElementById("who-chips");
   var durationChips = document.getElementById("duration-chips");
@@ -481,6 +528,10 @@
     durationChips.querySelectorAll(".chip").forEach(function (c) {
       c.setAttribute("aria-checked", "false");
     });
+    var pinyinBox = document.getElementById("feeling-pinyin");
+    var pinyinList = document.getElementById("feeling-pinyin-list");
+    if (pinyinBox) pinyinBox.hidden = true;
+    if (pinyinList) pinyinList.innerHTML = "";
     petMood("idle");
     syncPrintEnabled();
   }
@@ -942,18 +993,137 @@
     );
   }
 
+  function renderSuggestChips(root, words, mode) {
+    if (!root) return;
+    root.innerHTML = "";
+    words.forEach(function (word) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "suggest-chip";
+      btn.dataset.value = word;
+      btn.dataset.mode = mode || "set";
+      btn.textContent = word;
+      root.appendChild(btn);
+    });
+  }
+
+  function fillFromChip(input, value, mode) {
+    if (!input) return;
+    if (input.dataset.composing === "1") return;
+    var next = value;
+    if (mode === "append") {
+      var cur = input.value.trim();
+      next = cur ? cur + "，" + value : value;
+      if (next.length > (input.maxLength || 40)) next = value;
+    }
+    input.value = next;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.focus();
+  }
+
+  function normalizePinyin(raw) {
+    return String(raw || "")
+      .toLowerCase()
+      .replace(/[^a-z]/g, "");
+  }
+
+  function feelingCandidates(raw) {
+    var key = normalizePinyin(raw);
+    if (!key || key.length < 2) return [];
+    if (PINYIN_FEELING[key]) return PINYIN_FEELING[key].slice();
+    var hits = [];
+    Object.keys(PINYIN_FEELING).forEach(function (k) {
+      if (k.indexOf(key) === 0 || key.indexOf(k) === 0) {
+        PINYIN_FEELING[k].forEach(function (w) {
+          if (hits.indexOf(w) === -1) hits.push(w);
+        });
+      }
+    });
+    return hits.slice(0, 6);
+  }
+
+  function syncFeelingPinyin() {
+    var box = document.getElementById("feeling-pinyin");
+    var list = document.getElementById("feeling-pinyin-list");
+    if (!box || !list || !feeling) return;
+    if (feeling.dataset.composing === "1") {
+      box.hidden = true;
+      return;
+    }
+    var raw = feeling.value.trim();
+    /* 已有中文就不打扰；只在像拼音的拉丁输入时出候选 */
+    if (!raw || /[\u4e00-\u9fff]/.test(raw)) {
+      box.hidden = true;
+      list.innerHTML = "";
+      return;
+    }
+    var cands = feelingCandidates(raw);
+    if (!cands.length) {
+      box.hidden = true;
+      list.innerHTML = "";
+      return;
+    }
+    list.innerHTML = "";
+    cands.forEach(function (word) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "suggest-chip is-pinyin";
+      btn.dataset.value = word;
+      btn.dataset.mode = "set";
+      btn.setAttribute("role", "option");
+      btn.textContent = word;
+      list.appendChild(btn);
+    });
+    box.hidden = false;
+  }
+
+  renderSuggestChips(
+    document.getElementById("feeling-suggest"),
+    FEELING_WORDS.concat(FEELING_PHRASES),
+    "set"
+  );
+  renderSuggestChips(document.getElementById("who-name-suggest"), WHO_NAME_WORDS, "set");
+  renderSuggestChips(document.getElementById("they-have-suggest"), THEY_HAVE_WORDS, "set");
+
+  document.querySelectorAll(".suggest-chips").forEach(function (root) {
+    root.addEventListener("click", function (e) {
+      var btn = e.target.closest(".suggest-chip");
+      if (!btn) return;
+      var forId = root.id === "feeling-pinyin-list" ? "feeling" : root.getAttribute("data-for");
+      var input = document.getElementById(forId);
+      fillFromChip(input, btn.dataset.value, btn.dataset.mode || "set");
+      if (forId === "feeling") {
+        var box = document.getElementById("feeling-pinyin");
+        if (box) box.hidden = true;
+      }
+    });
+  });
+
   ["who-name", "they-have", "feeling", "pet-name-input"].forEach(function (id) {
     var el = document.getElementById(id);
     if (!el) return;
     el.setAttribute("lang", "zh-CN");
     el.setAttribute("inputmode", "text");
     el.setAttribute("spellcheck", "false");
+    el.setAttribute("autocapitalize", "off");
+    el.setAttribute("autocorrect", "off");
     el.addEventListener("compositionstart", function () {
       el.dataset.composing = "1";
+      if (el === feeling) {
+        var box = document.getElementById("feeling-pinyin");
+        if (box) box.hidden = true;
+      }
     });
     el.addEventListener("compositionend", function () {
       el.dataset.composing = "";
-      if (el === feeling) syncPrintEnabled();
+      if (el === feeling) {
+        syncPrintEnabled();
+        syncFeelingPinyin();
+      }
+    });
+    el.addEventListener("input", function () {
+      if (el.dataset.composing === "1") return;
+      if (el === feeling) syncFeelingPinyin();
     });
     el.addEventListener("keydown", function (e) {
       if (isImeComposing(e, el)) return;
