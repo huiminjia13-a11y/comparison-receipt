@@ -130,6 +130,37 @@
     tonightIndex: 0
   };
 
+  /* 只上传这四个固定事件名。不传想到的人、感觉、票面或任何输入。 */
+  var COUNT_EVENTS = {
+    start: "开始打票",
+    print: "打印小票",
+    archive: "归档",
+    tear: "撕票"
+  };
+
+  function countEvent(name) {
+    try {
+      if (
+        name !== COUNT_EVENTS.start &&
+        name !== COUNT_EVENTS.print &&
+        name !== COUNT_EVENTS.archive &&
+        name !== COUNT_EVENTS.tear
+      ) {
+        return;
+      }
+      var gc = window.goatcounter;
+      if (!gc || typeof gc.count !== "function") return;
+      gc.count({
+        path: name,
+        title: name,
+        event: true,
+        no_session: true
+      });
+    } catch (e) {
+      /* 脚本没加载、被拦截，或 file:// 下没有计数器时，游戏继续。 */
+    }
+  }
+
   function later(fn, ms) {
     var id = window.setTimeout(fn, ms);
     state.timers.push(id);
@@ -849,6 +880,7 @@
       nudgeWho();
       return;
     }
+    countEvent(COUNT_EVENTS.print);
     Sound.unlock();
     var store = loadStore();
     var ticket = buildTicket();
@@ -916,6 +948,7 @@
 
   function archiveTicket() {
     if (!state.ticket || !state.canAct) return;
+    countEvent(COUNT_EVENTS.archive);
     state.canAct = false;
     var store = loadStore();
     store.archived.push({
@@ -975,6 +1008,7 @@
 
   function tearTicket() {
     if (!state.ticket || !state.canAct) return;
+    countEvent(COUNT_EVENTS.tear);
     state.canAct = false;
     ticketActions.hidden = true;
     printStatus.textContent = "";
@@ -1232,6 +1266,7 @@
 
   document.getElementById("btn-start").addEventListener("click", function () {
     Sound.unlock();
+    countEvent(COUNT_EVENTS.start);
     resetForm();
     show("form");
   });

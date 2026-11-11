@@ -7,6 +7,21 @@
   <meta name="color-scheme" content="dark">
   <title>今晚的比较小票</title>
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      try {
+        /* file:// 下 //gc.zgo.at 会变成无效的本地地址并报错，所以只在 http(s) 插入。 */
+        if (location.protocol !== "http:" && location.protocol !== "https:") return;
+        var s = document.createElement("script");
+        s.async = true;
+        s.src = "//gc.zgo.at/count.js";
+        s.setAttribute("data-goatcounter", "https://comparison-receipt.goatcounter.com/count");
+        (document.head || document.documentElement).appendChild(s);
+      } catch (e) {
+        /* 统计脚本插不进去时，游戏照常打开。 */
+      }
+    })();
+  </script>
 </head>
 <body>
   <button type="button" class="sound-toggle" id="sound-toggle" aria-pressed="true">声音 开</button>
@@ -29,6 +44,7 @@
       <button type="button" class="btn ghost" id="btn-open-drawer">本周抽屉</button>
       <p class="plaza" id="plaza-line" aria-live="polite">今晚也有人在打票。</p>
       <p class="fine">只存在这台设备上。没有账号。默认不分享。聚合数字不含任何人的票面。</p>
+      <p class="fine">只统计匿名访问次数，不记录票的内容。</p>
       <p class="disclaimer">不是心理咨询、不算命、不保证心情变好。</p>
     </section>
 
