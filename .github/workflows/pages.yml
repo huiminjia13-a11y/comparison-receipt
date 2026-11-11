@@ -29,63 +29,65 @@ jobs:
           BASE: https://abacus.jasoncameron.dev
         run: |
           set -euo pipefail
-          get_value() {
-            local key="$1"
-            local body code
-            local attempt
-            for attempt in 1 2 3; do
-              # Do not use curl -f: 404 "Key not found" is a valid empty counter.
-              code="$(curl -sS -o /tmp/abacus-body.json -w "%{http_code}" --max-time 20 "${BASE}/get/${NS}/${key}" || echo 000)"
-              body="$(cat /tmp/abacus-body.json 2>/dev/null || true)"
-              if [ "$code" = "200" ] && echo "$body" | grep -q '"value"'; then
-                echo "$body" | python3 -c 'import json,sys; print(int(json.load(sys.stdin).get("value") or 0))'
-                return 0
-              fi
-              if [ "$code" = "404" ] || echo "$body" | grep -qi 'not found\|Key not found'; then
-                echo 0
-                return 0
-              fi
-              sleep $((attempt * 2))
-            done
-            return 1
-          }
+          python3 <<'PY'
+          import json, os, time, urllib.error, urllib.request
+          from datetime import datetime, timezone
 
-          opens="$(get_value opens)" || opens=""
-          prints="$(get_value prints)" || prints=""
-          if [ -z "${opens}" ] || [ -z "${prints}" ]; then
-            echo "Abacus unreachable; keeping committed stats.json"
-            exit 0
-          fi
+          NS = os.environ["NS"]
+          BASE = os.environ["BASE"].rstrip("/")
+          keys = [
+              ("opens", None),
+              ("prints", None),
+              ("emo-suan", "酸"),
+              ("emo-bufu", "不服"),
+              ("emo-xiang", "想"),
+              ("emo-qi", "气"),
+              ("emo-kong", "空"),
+              ("emo-qita", "其他"),
+          ]
 
-          suan="$(get_value emo-suan || echo 0)"
-          bufu="$(get_value emo-bufu || echo 0)"
-          xiang="$(get_value emo-xiang || echo 0)"
-          qi="$(get_value emo-qi || echo 0)"
-          kong="$(get_value emo-kong || echo 0)"
-          qita="$(get_value emo-qita || echo 0)"
-          updated="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          def get_value(key: str) -> int | None:
+              url = f"{BASE}/get/{NS}/{key}"
+              for attempt in range(2):
+                  try:
+                      req = urllib.request.Request(url, headers={"User-Agent": "comparison-receipt-stats-mirror"})
+                      with urllib.request.urlopen(req, timeout=8) as res:
+                          data = json.load(res)
+                          return int(data.get("value") or 0)
+                  except urllib.error.HTTPError as e:
+                      body = e.read().decode("utf-8", "replace")
+                      if e.code == 404 or "not found" in body.lower():
+                          return 0
+                  except Exception as e:
+                      print(f"warn {key}: {e}")
+                  time.sleep(1 + attempt)
+              return None
 
-          python3 - <<PY
-          import json
+          opens = get_value("opens")
+          prints = get_value("prints")
+          if opens is None or prints is None:
+              print("Abacus unreachable; keeping committed stats.json")
+              raise SystemExit(0)
+
+          emotions = {}
+          for key, label in keys:
+              if label is None:
+                  continue
+              n = get_value(key)
+              emotions[label] = 0 if n is None else n
+
           data = {
-            "namespace": "${NS}",
-            "updatedAt": "${updated}",
-            "source": "abacus",
-            "opens": int("${opens}"),
-            "prints": int("${prints}"),
-            "emotions": {
-              "酸": int("${suan}"),
-              "不服": int("${bufu}"),
-              "想": int("${xiang}"),
-              "气": int("${qi}"),
-              "空": int("${kong}"),
-              "其他": int("${qita}"),
-            },
-            "note": "Anonymous lifetime totals only. No ticket content. Abacus remains source of truth for increments.",
+              "namespace": NS,
+              "updatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "source": "abacus",
+              "opens": opens,
+              "prints": prints,
+              "emotions": emotions,
+              "note": "Anonymous lifetime totals only. No ticket content. Abacus remains source of truth for increments.",
           }
           with open("_site/stats.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-            f.write("\n")
+              json.dump(data, f, ensure_ascii=False, indent=2)
+              f.write("\n")
           print(json.dumps(data, ensure_ascii=False, indent=2))
           PY
 
