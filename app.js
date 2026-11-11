@@ -20,23 +20,27 @@
   ];
 
   /* 常用词 / 拼一句：离线点选；野心 + 夜里打转，不是鸡汤 */
-  var FEELING_WORDS = [
-    "想", "气", "惦记", "不服", "空", "来不及",
-    "怒火", "思念", "酸", "憋", "慌", "烦",
-    "麻", "累", "眼红", "上头", "咬牙", "说不清"
+  /* 首屏只露 8 个，其余进「更多」——减轻表单压迫感 */
+  var FEELING_PRIMARY = [
+    "想", "气", "不服", "酸", "思念", "空", "怒火", "又气又想"
   ];
-  var FEELING_PHRASES = [
-    "又气又想", "想赢", "不服气", "还在想", "空得很",
+  var FEELING_MORE = [
+    "惦记", "来不及", "憋", "慌", "烦", "麻", "累", "眼红",
+    "上头", "咬牙", "说不清", "想赢", "不服气", "还在想", "空得很",
     "来不及了", "比较上头", "夜里又冒出来", "羡慕到牙痒"
   ];
+  var FEELING_WORDS = FEELING_PRIMARY.concat(FEELING_MORE);
+  var FEELING_PHRASES = [];
+  /* 称呼建议：不与上方「想到了谁」chips 重复（前公司 / offer / 同学已在 who） */
   var WHO_NAME_WORDS = [
-    "他", "她", "前公司", "那个 offer", "以前的自己", "突然想到的人", "同学", "旧人"
+    "他", "她", "那个人", "不想写名字"
   ];
   var THEY_HAVE_WORDS = [
     "那个 offer", "头衔", "看起来很确定的人生", "胆子", "钱", "房子", "签证", "节奏", "人脉"
   ];
   var STAMPS = ["已付无法退款", "今晚结算", "还在想", "不服"];
-
+  var THOUGHT_COUNT_KEY = "tonight-comparison-receipt-thought-n-v1";
+  var FEELING_MORE_OPEN = false;
   /* 轻量拼音→感觉词（静态、无网络）；气 / 想 / 不服 都覆盖 */
   var PINYIN_FEELING = {
     xiang: ["想", "思念", "想赢"],
@@ -707,26 +711,72 @@
   function bumpRemotePrint(bucket) {
     if (!canUseRemoteCounter()) return;
     var emoKey = EMO_KEY[bucket] || EMO_KEY["其他"];
+    /* 乐观更新：第二张起广场计数不再慢一拍 */
+    var prev = state.remote || { opens: 0, prints: 0, emotions: emptyEmotions() };
+    var optimisticEmo = emptyEmotions();
+    EMOTION_BUCKETS.forEach(function (k) {
+      optimisticEmo[k] = (prev.emotions && prev.emotions[k]) || 0;
+    });
+    optimisticEmo[bucket] = (optimisticEmo[bucket] || 0) + 1;
+    applyRemoteCounts(prev.opens, (prev.prints || 0) + 1, optimisticEmo);
+    var seq = (state.printBumpSeq = (state.printBumpSeq || 0) + 1);
     Promise.all([hitCounter("prints"), hitCounter(emoKey)])
       .then(function (parts) {
+        if (seq !== state.printBumpSeq) return;
         var emotions = emptyEmotions();
         if (state.remote && state.remote.emotions) {
           EMOTION_BUCKETS.forEach(function (k) {
             emotions[k] = state.remote.emotions[k] || 0;
           });
         }
-        emotions[bucket] = parts[1];
+        emotions[bucket] = Math.max(parts[1], emotions[bucket] || 0);
         var opens = state.remote ? state.remote.opens : 0;
-        applyRemoteCounts(opens, parts[0], emotions);
+        applyRemoteCounts(opens, Math.max(parts[0], state.remote ? state.remote.prints : 0), emotions);
       })
       .catch(function () {
-        /* 打票本机已记；远程失败时下次刷新会诚实标本机 */
         loadRemotePlaza();
       });
   }
 
-  /* 中国夜礼产品：票面/今晚边界/周结算一律 Asia/Shanghai，不用浏览器本地或 UTC。 */
-  var DISPLAY_TZ = "Asia/Shanghai";
+  /* 缺桶时 hit 一次注册 key，避免 emo-qi / emo-kong / emo-qita 404 */
+  function ensureEmoKeys() {
+    if (!canUseRemoteCounter()) return;
+    var flag = "tonight-receipt-emo-seed-v1";
+    try {
+      if (sessionStorage.getItem(flag) === "1") return;
+      sessionStorage.setItem(flag, "1");
+    } catch (e) { /* ignore */ }
+    EMOTION_BUCKETS.forEach(function (label, i) {
+      var key = EMO_KEY[label];
+      window.setTimeout(function () {
+        fetch(counterUrl("get", key), {
+          method: "GET",
+          mode: "cors",
+          credentials: "omit",
+          cache: "no-store"
+        })
+          .then(function (res) {
+            return res.json().then(function (data) {
+              return { ok: res.ok, data: data };
+            });
+          })
+          .then(function (pack) {
+            var missing =
+              !pack.ok ||
+              (pack.data && pack.data.error) ||
+              (pack.data && typeof pack.data.value === "undefined");
+            if (missing) return hitCounter(key);
+            return pack.data.value;
+          })
+          .catch(function () {
+            return hitCounter(key).catch(function () { return 0; });
+          });
+      }, 120 * i);
+    });
+  }
+
+  /* 「今晚」日界 / 周结算：Asia/Shanghai。票面时钟：浏览器本地时区（Intl），避免东京机显示上海差一小时。 */
+  var NIGHT_TZ = "Asia/Shanghai";
 
   function isShanghaiSunday(date) {
     var p = shanghaiParts(date || new Date());
@@ -737,9 +787,8 @@
     return WEEKDAY_ZH[p.weekday] || p.weekday || "—";
   }
 
-  function shanghaiParts(date) {
-    var parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: DISPLAY_TZ,
+  function formatPartsInZone(date, timeZone) {
+    var opts = {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -747,12 +796,35 @@
       hour: "2-digit",
       minute: "2-digit",
       hour12: false
-    }).formatToParts(date);
+    };
+    if (timeZone) opts.timeZone = timeZone;
+    var parts = new Intl.DateTimeFormat("en-GB", opts).formatToParts(date);
     var map = {};
     parts.forEach(function (p) {
       map[p.type] = p.value;
     });
+    /* en-GB + hour12:false 偶发 "24" → 归一成 00 */
+    if (map.hour === "24") map.hour = "00";
     return map;
+  }
+
+  function shanghaiParts(date) {
+    return formatPartsInZone(date, NIGHT_TZ);
+  }
+
+  /* 票面日期/时间：本机时区 */
+  function faceClockParts(date) {
+    return formatPartsInZone(date, null);
+  }
+
+  function shanghaiHour(date) {
+    var h = parseInt(shanghaiParts(date).hour, 10);
+    return isNaN(h) ? 0 : h;
+  }
+
+  function isNightShiftHour(date) {
+    var h = shanghaiHour(date);
+    return h >= 0 && h < 5;
   }
 
   function weekStartKey(date) {
@@ -833,6 +905,7 @@
     btnPrint.setAttribute("aria-disabled", ok ? "false" : "true");
     btnPrint.classList.toggle("is-wait", !ok);
     btnPrint.textContent = ok ? "打印" : "先写想到了谁";
+    syncThoughtNHint();
     if (ok && printHint) printHint.hidden = true;
   }
 
@@ -905,8 +978,8 @@
         later(function () { pet.classList.add("is-gone"); }, 400);
         return;
       }
-      if (mood === "watch" || mood === "blink") {
-        pet.dataset.mood = mood === "blink" ? "blink" : "watch";
+      if (mood === "watch" || mood === "blink" || mood === "flick") {
+        pet.dataset.mood = mood;
         return;
       }
       pet.dataset.mood = "idle";
@@ -933,18 +1006,152 @@
     return '<div class="row"><span class="k">' + k + "</span><span>" + escapeHtml(v) + "</span></div>";
   }
 
-  function pickStamp(ticket) {
-    var feel = String((ticket && ticket.feeling) || "");
+  function feelingTone(raw) {
+    var feel = String(raw || "");
+    if (/怒火|怒/.test(feel)) return "怒火";
+    if (/思念|惦记/.test(feel)) return "思念";
+    if (/酸|眼红|羡慕/.test(feel)) return "酸";
     if (/不服/.test(feel)) return "不服";
-    if (/想|惦记|思念|还在想/.test(feel)) return "还在想";
-    if (/气|怒|上头|咬牙|眼红/.test(feel)) return "今晚结算";
+    if (/空|空得很|麻/.test(feel)) return "空";
+    if (/想赢|上头|比较上头/.test(feel)) return "想赢";
+    if (/想|还在想/.test(feel)) return "想";
+    if (/气|烦|咬牙|憋/.test(feel)) return "气";
+    if (!feel.trim()) return "空票";
+    return "其他";
+  }
+
+  function pickStamp(ticket) {
+    /* 凌晨夜班章（上海 00:00–05:00）：稀有，压过普通感觉章 */
+    if (ticket && ticket.nightShift) return "凌晨夜班";
+    var tone = feelingTone(ticket && ticket.feeling);
+    if (tone === "怒火") return "怒火入账";
+    if (tone === "思念") return "还在想";
+    if (tone === "酸") return "已酸过";
+    if (tone === "不服") return "不服";
+    if (tone === "空") return "空账一笔";
+    if (tone === "想赢") return "想赢未退";
+    if (tone === "想") return "还在想";
+    if (tone === "气") return "今晚结算";
+    if (tone === "空票") return "已付无法退款";
     var pool = STAMPS;
     return pool[((ticket && ticket.no) || 0) % pool.length];
   }
 
+  function settlementLine(ticket) {
+    if (ticket && ticket.nightShift) {
+      return "夜班加盖。<br>别人睡了，你还在记账。<br><strong>凌晨结算 · 无法退款。</strong>";
+    }
+    var tone = feelingTone(ticket && ticket.feeling);
+    if (tone === "怒火") return "火气过秤。<br>烫，但算数。<br><strong>怒火入账 · 不退。</strong>";
+    if (tone === "思念") return "惦记过秤。<br>不解释好不好。<br><strong>还在想 · 已付。</strong>";
+    if (tone === "酸") return "酸也是燃料。<br>牙痒也记一笔。<br><strong>已酸过 · 无法退款。</strong>";
+    if (tone === "不服") return "不服气，也算数。<br>不说服你。<br><strong>不服 · 今晚结算。</strong>";
+    if (tone === "空") return "空着也出票。<br>空白不是没发生。<br><strong>空账一笔 · 已付。</strong>";
+    if (tone === "想赢") return "想赢写进存根。<br>赢不赢另说。<br><strong>想赢未退 · 已付。</strong>";
+    if (tone === "想") return "又想到了。<br>记下就好。<br><strong>还在想 · 无法退款。</strong>";
+    if (tone === "气") return "气过这一下。<br>不评价你。<br><strong>今晚结算 · 已付。</strong>";
+    if (tone === "空票") return "比较不是病。<br>是燃料。<br><strong>今晚结算 · 已付无法退款。</strong>";
+    return "这一笔入账。<br>不排名、不诊断。<br><strong>今晚结算 · 已付无法退款。</strong>";
+  }
+
+  function petReactToFeeling(feeling) {
+    var tone = feelingTone(feeling);
+    if (tone === "怒火" || tone === "气") {
+      petMood("flick");
+      later(function () { petMood("watch"); }, 480);
+      return;
+    }
+    if (tone === "思念" || tone === "想") {
+      petMood("blink");
+      later(function () { petMood("watch"); }, 320);
+      return;
+    }
+    if (tone === "酸" || tone === "不服" || tone === "想赢") {
+      petMood("watch");
+      return;
+    }
+    petMood("blink");
+  }
+
+  function normalizeThoughtKey(ticketOrParts) {
+    var name = "";
+    var label = "";
+    var whoId = "";
+    if (typeof ticketOrParts === "string") {
+      name = ticketOrParts.trim();
+    } else if (ticketOrParts) {
+      name = String(ticketOrParts.whoName || "").trim();
+      label = String(ticketOrParts.whoLabel || "").trim();
+      whoId = String(ticketOrParts.whoId || "").trim();
+    }
+    if (name) return "n:" + name.toLowerCase();
+    if (whoId && whoId !== "anon") return "id:" + whoId;
+    if (label) return "l:" + label;
+    return "";
+  }
+
+  function loadThoughtCounts() {
+    try {
+      var raw = localStorage.getItem(THOUGHT_COUNT_KEY);
+      if (!raw) return {};
+      var data = JSON.parse(raw);
+      return data && typeof data === "object" ? data : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveThoughtCounts(map) {
+    try {
+      localStorage.setItem(THOUGHT_COUNT_KEY, JSON.stringify(map));
+    } catch (e) { /* ignore */ }
+  }
+
+  function peekThoughtCount(key) {
+    if (!key) return 0;
+    var map = loadThoughtCounts();
+    return Number(map[key]) || 0;
+  }
+
+  function bumpThoughtCount(key) {
+    if (!key) return 1;
+    var map = loadThoughtCounts();
+    map[key] = (Number(map[key]) || 0) + 1;
+    saveThoughtCounts(map);
+    return map[key];
+  }
+
+  function currentThoughtKey() {
+    return normalizeThoughtKey({
+      whoId: selectedId(whoChips),
+      whoLabel: whoLabel(selectedId(whoChips)),
+      whoName: whoName.value.trim()
+    });
+  }
+
+  function syncThoughtNHint() {
+    var el = document.getElementById("thought-n-hint");
+    if (!el) return;
+    var key = currentThoughtKey();
+    var n = peekThoughtCount(key);
+    /* 已打过至少一次后，再想到同一人 → 第 N+1 次预告 */
+    if (key && n >= 1) {
+      el.hidden = false;
+      el.textContent = "这是你第 " + (n + 1) + " 次想到 TA";
+    } else {
+      el.hidden = true;
+      el.textContent = "";
+    }
+  }
+
   function receiptHtml(ticket) {
-    var stamp = pickStamp(ticket);
+    var stamp = ticket.stamp || pickStamp(ticket);
+    var settle = ticket.settlement || settlementLine(ticket);
     var tonight = ticket.tonightIndex ? "今晚第 " + ticket.tonightIndex + " 张" : "合计 今晚 × 1";
+    var nth =
+      ticket.thoughtN && ticket.thoughtN >= 2
+        ? '<div class="receipt-nth">这是你第 ' + ticket.thoughtN + " 次想到 TA</div>"
+        : "";
     return (
       '<div class="receipt-head">今晚的比较小票</div>' +
       '<div class="receipt-sub">今天想到了谁 · 热敏存根</div>' +
@@ -952,15 +1159,16 @@
       '<div class="row"><span class="k">日期</span><span>' + escapeHtml(ticket.date) + "</span></div>" +
       '<div class="row"><span class="k">时间</span><span>' + escapeHtml(ticket.clock) + "</span></div>" +
       '<div class="row"><span class="k">想到</span><span>' + escapeHtml(objectLine(ticket)) + "</span></div>" +
+      nth +
       receiptRow("感觉", ticket.feeling) +
       receiptRow("停留", ticket.durationLabel) +
       receiptRow("比一口", ticket.theyHave) +
       '<div class="dash"></div>' +
-      '<div class="verdict">比较不是病。<br>是燃料。<br><strong>今晚结算 · 已付无法退款。</strong></div>' +
+      '<div class="verdict">' + settle + "</div>" +
       '<div class="dash"></div>' +
       '<div class="receipt-no"><span>No. ' + padNo(ticket.no) + "</span><span>" + escapeHtml(tonight) + "</span></div>" +
       '<div class="stamp-slot"><div class="stamp">' + escapeHtml(stamp) + "</div></div>" +
-      '<div class="receipt-foot">本机存根 · 默认不分享。<br>不是心理咨询、不算命、不保证心情变好。</div>'
+      '<div class="receipt-foot">本机存根 · 默认不分享。<br>票面时钟为本机时区 · 「今晚」按上海日界。<br>不是心理咨询、不算命、不保证心情变好。</div>'
     );
   }
 
@@ -968,8 +1176,9 @@
     var store = loadStore();
     var no = store.seq + 1;
     var now = new Date();
-    var p = shanghaiParts(now);
-    return {
+    var face = faceClockParts(now);
+    var nightShift = isNightShiftHour(now);
+    var draft = {
       no: no,
       whoId: selectedId(whoChips),
       whoLabel: whoLabel(selectedId(whoChips)),
@@ -978,20 +1187,26 @@
       feeling: feeling.value.trim(),
       durationId: selectedId(durationChips),
       durationLabel: durationLabel(selectedId(durationChips)),
-      /* 票面只显示这两项（上海时区），不显示 createdAt 的 UTC ISO。 */
-      clock: p.hour + ":" + p.minute,
-      date: p.year + "-" + p.month + "-" + p.day,
-      weekday: p.weekday,
+      /* 票面时钟：本机时区；weekKey / 今晚仍按上海 */
+      clock: face.hour + ":" + face.minute,
+      date: face.year + "-" + face.month + "-" + face.day,
+      weekday: face.weekday,
       createdAt: now.toISOString(),
-      weekKey: weekStartKey(now)
+      weekKey: weekStartKey(now),
+      nightShift: nightShift
     };
+    var thoughtKey = normalizeThoughtKey(draft);
+    draft.thoughtN = bumpThoughtCount(thoughtKey);
+    draft.stamp = pickStamp(draft);
+    draft.settlement = settlementLine(draft);
+    return draft;
   }
 
   function reducedMotion() {
     return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  var PRINT_MS = 3600;
+  var PRINT_MS = 2400;
 
   function startPrint() {
     if (!printReady()) {
@@ -1053,15 +1268,15 @@
     // 章的动画在约 60% 处“落地”
     later(function () {
       Sound.thunk();
-      petMood("blink");
-    }, reduce ? 0 : 200);
+      petReactToFeeling(state.ticket && state.ticket.feeling);
+    }, reduce ? 0 : 180);
     later(function () {
       printStatus.textContent = "请取票";
       ticketActions.hidden = false;
       state.canAct = true;
-      petMood("watch");
       refreshPlaza();
-    }, reduce ? 150 : 700);
+      maybeAskPetName();
+    }, reduce ? 150 : 520);
   }
 
   function archiveTicket() {
@@ -1120,8 +1335,42 @@
     return "polygon(" + edge + " 0%, " + path.join(", ") + ", " + edge + " 100%)";
   }
 
-  var TEAR_MS = 1900;
-  var TEAR_PAUSE_MS = 400;
+  /* 撕口高潮后立刻进「已撕掉」，不再空等打印机画面 */
+  var TEAR_MS = 980;
+  var TEAR_CLIMAX_MS = 520;
+
+  function spawnTearBurst() {
+    var host = document.getElementById("tear-burst");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "tear-burst";
+      host.className = "tear-burst";
+      host.setAttribute("aria-hidden", "true");
+      document.body.appendChild(host);
+    }
+    host.innerHTML = "";
+    host.classList.add("is-on");
+    var colors = ["#f3eee0", "#e8e1d0", "#c42b22", "#e8c37a", "#d7ccbb", "#f0a040"];
+    for (var i = 0; i < 28; i++) {
+      var bit = document.createElement("span");
+      bit.className = i % 3 === 0 ? "tear-burst-bit is-confetti" : "tear-burst-bit";
+      var dx = (Math.random() - 0.5) * 220;
+      var dy = -40 - Math.random() * 160;
+      var rot = (Math.random() - 0.5) * 520;
+      bit.style.setProperty("--dx", dx.toFixed(1) + "px");
+      bit.style.setProperty("--dy", dy.toFixed(1) + "px");
+      bit.style.setProperty("--rot", rot.toFixed(1) + "deg");
+      bit.style.left = 42 + Math.random() * 16 + "%";
+      bit.style.top = 38 + Math.random() * 18 + "%";
+      bit.style.background = colors[i % colors.length];
+      bit.style.animationDelay = (Math.random() * 0.08).toFixed(2) + "s";
+      host.appendChild(bit);
+    }
+    later(function () {
+      host.classList.remove("is-on");
+      host.innerHTML = "";
+    }, 1100);
+  }
 
   function tearTicket() {
     if (!state.ticket || !state.canAct) return;
@@ -1137,11 +1386,12 @@
     Sound.unlock();
 
     if (reducedMotion()) {
-      Sound.tear(0, 0.4);
+      Sound.tear(0, 0.35);
+      spawnTearBurst();
       receiptEl.classList.add("is-fading");
       later(function () {
         goAfter("tear");
-      }, 700);
+      }, 420);
       return;
     }
 
@@ -1174,13 +1424,15 @@
     receiptEl.style.visibility = "hidden";
     receiptStage.classList.add("is-tearing");
 
-    // 0–0.25s 绷紧；0.25–0.9s 撕口从上往下走；0.9–1.9s 两半分开、落下、淡出；再停 0.4s
-    Sound.tear(0.24, 0.66);
-    Sound.rustle(1.05, 0.12);
-    Sound.rustle(1.35, 0.08);
+    Sound.tear(0.12, 0.48);
+    Sound.rustle(0.55, 0.14);
+    later(function () {
+      spawnTearBurst();
+      Sound.rustle(0, 0.1);
+    }, TEAR_CLIMAX_MS);
     later(function () {
       goAfter("tear");
-    }, TEAR_MS + TEAR_PAUSE_MS);
+    }, TEAR_MS);
   }
 
   function goAfter(kind) {
@@ -1511,11 +1763,38 @@
     box.hidden = false;
   }
 
-  renderSuggestChips(
-    document.getElementById("feeling-suggest"),
-    FEELING_WORDS.concat(FEELING_PHRASES),
-    "set"
-  );
+  function renderFeelingSuggest() {
+    var root = document.getElementById("feeling-suggest");
+    if (!root) return;
+    root.innerHTML = "";
+    var words = FEELING_MORE_OPEN
+      ? FEELING_PRIMARY.concat(FEELING_MORE)
+      : FEELING_PRIMARY.slice();
+    words.forEach(function (word) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "suggest-chip";
+      btn.dataset.value = word;
+      btn.dataset.mode = "set";
+      btn.textContent = word;
+      root.appendChild(btn);
+    });
+    if (!FEELING_MORE_OPEN && FEELING_MORE.length) {
+      var more = document.createElement("button");
+      more.type = "button";
+      more.className = "suggest-chip is-more";
+      more.textContent = "更多";
+      more.setAttribute("aria-expanded", "false");
+      more.addEventListener("click", function (e) {
+        e.stopPropagation();
+        FEELING_MORE_OPEN = true;
+        renderFeelingSuggest();
+      });
+      root.appendChild(more);
+    }
+  }
+
+  renderFeelingSuggest();
   renderSuggestChips(document.getElementById("who-name-suggest"), WHO_NAME_WORDS, "set");
   renderSuggestChips(document.getElementById("they-have-suggest"), THEY_HAVE_WORDS, "set");
 
@@ -1559,6 +1838,7 @@
     el.addEventListener("input", function () {
       if (el.dataset.composing === "1") return;
       if (el === feeling) syncFeelingPinyin();
+      if (el === whoName) syncThoughtNHint();
     });
     el.addEventListener("keydown", function (e) {
       if (isImeComposing(e, el)) return;
@@ -1595,15 +1875,10 @@
     petNameTag.textContent = name || "";
   }
 
-  (function initPetName() {
-    var existing = readPetName();
+  function wirePetNameSlip() {
     var slip = document.getElementById("name-slip");
-    if (existing !== null) {
-      petNameTag.textContent = existing;
-      return;
-    }
-    if (!slip) return;
-    slip.hidden = false;
+    if (!slip || slip.dataset.wired === "1") return;
+    slip.dataset.wired = "1";
     document.getElementById("btn-name-ok").addEventListener("click", function () {
       var v = document.getElementById("pet-name-input").value.trim();
       writePetName(v);
@@ -1613,6 +1888,29 @@
       writePetName("");
       slip.hidden = true;
     });
+  }
+
+  /* 第一次见到它：等首张票打出 / 猫出现后再问，不打断 landing */
+  function maybeAskPetName() {
+    var existing = readPetName();
+    if (existing !== null) {
+      petNameTag.textContent = existing;
+      return;
+    }
+    var slip = document.getElementById("name-slip");
+    if (!slip) return;
+    wirePetNameSlip();
+    slip.hidden = false;
+  }
+
+  (function initPetName() {
+    var existing = readPetName();
+    if (existing !== null) {
+      petNameTag.textContent = existing;
+      return;
+    }
+    var slip = document.getElementById("name-slip");
+    if (slip) slip.hidden = true;
   })();
 
   function shareCaption() {
@@ -1769,7 +2067,11 @@
     var whoStr = privateMode ? objectLine(ticket) : "████";
     var feelStr = privateMode ? (ticket.feeling || "—") : "████";
     var biteStr = privateMode ? (ticket.theyHave || "—") : "████";
-    var stamp = ticket ? pickStamp(ticket) : "今晚结算";
+    var stamp = ticket ? (ticket.stamp || pickStamp(ticket)) : "今晚结算";
+    var settlePlain = ticket
+      ? String(ticket.settlement || settlementLine(ticket)).replace(/<br\s*\/?>/gi, " ").replace(/<\/?strong>/gi, "")
+      : "比较不是病。是燃料。";
+    if (settlePlain.length > 28) settlePlain = settlePlain.slice(0, 28) + "…";
 
     var right = x + pw;
     drawRow(ctx, x, y + 210, "日期", dateStr, right);
@@ -1784,11 +2086,11 @@
 
     ctx.textAlign = "center";
     ctx.fillStyle = "#c9a227";
-    ctx.font = "700 36px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
-    ctx.fillText("已付 · 无法退款", w / 2, y + 700);
+    ctx.font = "700 34px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillText(stamp, w / 2, y + 700);
     ctx.fillStyle = "#4a453c";
     ctx.font = "22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
-    ctx.fillText("比较不是病。是燃料。", w / 2, y + 760);
+    ctx.fillText(privateMode ? settlePlain : "比较不是病。是燃料。", w / 2, y + 760);
     ctx.fillText(privateMode ? "本机完整票脸 · 自行决定是否外传" : "公开默认打码 · 不含真名与感受", w / 2, y + 820);
     ctx.fillText("不是心理咨询、不算命、不保证心情变好。", w / 2, y + 870);
 
@@ -2053,5 +2355,6 @@
     state.tonightIndex = 0;
   }
   refreshPlaza();
+  ensureEmoKeys();
   bumpRemoteOpen();
 })();
