@@ -19,11 +19,11 @@
 
   /* 常用词 / 拼一句：离线点选；气与想都可以 */
   var FEELING_WORDS = [
-    "想", "气", "酸", "空", "来不及", "说不清", "憋", "慌", "闷", "烦",
+    "怒火", "思念", "想", "气", "酸", "空", "来不及", "说不清", "憋", "慌", "闷", "烦",
     "惦记", "委屈", "麻", "累", "不服", "空落落", "发紧", "酸胀"
   ];
   var FEELING_PHRASES = [
-    "心里一紧", "说不上来", "又气又想", "又酸又空", "突然很累", "没人可比"
+    "怒火和思念", "心里一紧", "说不上来", "又气又想", "又酸又空", "突然很累", "没人可比"
   ];
   var WHO_NAME_WORDS = [
     "他", "她", "朋友", "以前的自己", "突然想到的人", "同事", "旧人"
@@ -34,9 +34,12 @@
 
   /* 轻量拼音→感觉词（静态、无网络）；气 / 想 / 酸 都覆盖 */
   var PINYIN_FEELING = {
-    xiang: ["想"],
-    qi: ["气"],
-    nu: ["气"],
+    xiang: ["想", "思念"],
+    qi: ["气", "怒火"],
+    nu: ["怒火", "气"],
+    nuhuo: ["怒火"],
+    sinian: ["思念"],
+    nuhuohesinian: ["怒火和思念"],
     dianji: ["惦记"],
     suan: ["酸", "酸胀"],
     kong: ["空", "空落落"],
@@ -92,7 +95,6 @@
   var pet = document.getElementById("pet");
   var petNameTag = document.getElementById("pet-name-tag");
   var printHint = document.getElementById("print-hint");
-  var feelingField = feeling ? feeling.closest(".field") : null;
   var shareSheet = document.getElementById("share-sheet");
   var shareStatus = document.getElementById("share-status");
   var shareBtn = document.getElementById("btn-share-ticket");
@@ -491,32 +493,32 @@
     return on ? on.dataset.id : "";
   }
 
+  function thoughtReady() {
+    return Boolean(selectedId(whoChips) || whoName.value.trim());
+  }
+
   function printReady() {
-    /* 比较（they-have）从不挡打印；门槛是想到了谁 + 感觉 + 停留 */
-    return Boolean(selectedId(whoChips) && feeling.value.trim() && selectedId(durationChips));
+    /* 感觉、停留、比较一口都不挡打印。门槛只是「今天你想到了谁」。 */
+    return thoughtReady();
   }
 
   function syncPrintEnabled() {
-    var hasWho = Boolean(selectedId(whoChips));
-    var hasFeeling = Boolean(feeling.value.trim());
-    var hasDuration = Boolean(selectedId(durationChips));
     var ok = printReady();
     btnPrint.setAttribute("aria-disabled", ok ? "false" : "true");
     btnPrint.classList.toggle("is-wait", !ok);
-    if (!hasWho) btnPrint.textContent = "先选想到了谁";
-    else if (!hasFeeling) btnPrint.textContent = "先写感觉";
-    else if (!hasDuration) btnPrint.textContent = "先选停留多久";
-    else btnPrint.textContent = "打印";
-    if (hasFeeling && printHint) printHint.hidden = true;
+    btnPrint.textContent = ok ? "打印" : "先写想到了谁";
+    if (ok && printHint) printHint.hidden = true;
   }
 
-  function nudgeFeeling() {
-    if (!feelingField) return;
-    feelingField.classList.remove("is-shake");
-    void feelingField.offsetWidth;
-    feelingField.classList.add("is-shake");
+  function nudgeWho() {
+    var block = document.getElementById("who-block");
+    if (block) {
+      block.classList.remove("is-shake");
+      void block.offsetWidth;
+      block.classList.add("is-shake");
+    }
     if (printHint) printHint.hidden = false;
-    feeling.focus();
+    if (whoName) whoName.focus();
   }
 
   function show(name) {
@@ -599,20 +601,21 @@
     }
   }
 
+  function receiptRow(k, v) {
+    if (!String(v || "").trim()) return "";
+    return '<div class="row"><span class="k">' + k + "</span><span>" + escapeHtml(v) + "</span></div>";
+  }
+
   function receiptHtml(ticket) {
-    var have = (ticket.theyHave || "").trim();
-    var haveRow = have
-      ? '<div class="row"><span class="k">比一口</span><span>' + escapeHtml(have) + "</span></div>"
-      : "";
     return (
       '<div class="receipt-head">今晚的比较小票</div>' +
-      '<div class="receipt-sub">夜间小票受理处 · 热敏存根</div>' +
+      '<div class="receipt-sub">今天想到了谁 · 热敏存根</div>' +
       '<div class="dash"></div>' +
       '<div class="row"><span class="k">时间</span><span>' + escapeHtml(ticket.clock) + "</span></div>" +
       '<div class="row"><span class="k">想到</span><span>' + escapeHtml(objectLine(ticket)) + "</span></div>" +
-      haveRow +
-      '<div class="row"><span class="k">感觉</span><span>' + escapeHtml(ticket.feeling) + "</span></div>" +
-      '<div class="row"><span class="k">停留</span><span>' + escapeHtml(ticket.durationLabel) + "</span></div>" +
+      receiptRow("感觉", ticket.feeling) +
+      receiptRow("停留", ticket.durationLabel) +
+      receiptRow("比一口", ticket.theyHave) +
       '<div class="dash"></div>' +
       '<div class="verdict">这不是判决。<br>你没有少活。<br><strong>你只是付了一笔注意力。</strong></div>' +
       '<div class="dash"></div>' +
@@ -652,7 +655,7 @@
 
   function startPrint() {
     if (!printReady()) {
-      nudgeFeeling();
+      nudgeWho();
       return;
     }
     Sound.unlock();
@@ -922,13 +925,13 @@
       '<div class="row"><span class="k">最常时段</span><span>' + escapeHtml(slot) + "</span></div>" +
       '<div class="row"><span class="k">最常感觉</span><span>' + escapeHtml(feel) + "</span></div>" +
       '<div class="dash"></div>' +
-      '<div class="settle-foot">撕掉的不留底。本机构不评价。比较不是门槛。</div>';
+      '<div class="settle-foot">撕掉的不留底。本机构不评价。</div>';
 
     drawerList.innerHTML = "";
     if (!tickets.length) {
       var empty = document.createElement("li");
       empty.className = "drawer-empty";
-      empty.textContent = "本周还没有归档的票。想到谁就打一张；比较可跳过。";
+      empty.textContent = "本周还没有归档的票。想到谁就打一张。比较可以空着。";
       drawerList.appendChild(empty);
       return;
     }
@@ -958,6 +961,11 @@
     var btn = e.target.closest(".chip");
     if (!btn) return;
     var root = btn.parentElement;
+    if (btn.dataset.group === "duration" && btn.getAttribute("aria-checked") === "true") {
+      btn.setAttribute("aria-checked", "false");
+      syncPrintEnabled();
+      return;
+    }
     root.querySelectorAll(".chip").forEach(function (c) {
       c.setAttribute("aria-checked", c === btn ? "true" : "false");
     });
@@ -970,6 +978,7 @@
   whoChips.addEventListener("click", onChipClick);
   durationChips.addEventListener("click", onChipClick);
   feeling.addEventListener("input", syncPrintEnabled);
+  whoName.addEventListener("input", syncPrintEnabled);
 
   document.getElementById("btn-start").addEventListener("click", function () {
     Sound.unlock();
@@ -1145,6 +1154,7 @@
         syncPrintEnabled();
         syncFeelingPinyin();
       }
+      if (el === whoName) syncPrintEnabled();
     });
     el.addEventListener("input", function () {
       if (el.dataset.composing === "1") return;
@@ -1153,7 +1163,7 @@
     el.addEventListener("keydown", function (e) {
       if (isImeComposing(e, el)) return;
       if (e.key !== "Enter") return;
-      if (el === feeling) {
+      if (el === whoName || el === theyHave || el === feeling) {
         e.preventDefault();
         startPrint();
       }
@@ -1243,7 +1253,7 @@
     ctx.fillText(kind === "tear" ? "今晚撕了一张" : "今晚的账单", w / 2, y + 80);
     ctx.fillStyle = "#4a453c";
     ctx.font = "22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
-    ctx.fillText("夜间小票受理处 · 热敏存根", w / 2, y + 120);
+    ctx.fillText("今天想到了谁 · 热敏存根", w / 2, y + 120);
 
     function dash(yy) {
       ctx.strokeStyle = "#cfc6b4";

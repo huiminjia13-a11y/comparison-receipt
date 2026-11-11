@@ -812,7 +812,9 @@ input[type="text"]:focus {
   display: none;
 }
 
-.field.is-shake input {
+.field.is-shake input,
+#who-block.is-shake .chip,
+#who-block.is-shake input {
   animation: field-shake 0.38s ease;
 }
 
@@ -1163,6 +1165,8 @@ input[type="text"]:focus {
   .pet[data-mood="watch"] .pet-ear-r,
   .pet[data-mood="proud"] .pet-tail-curl,
   .field.is-shake input,
+  #who-block.is-shake .chip,
+  #who-block.is-shake input,
   #app[data-screen="ticket"] .printer:not(.is-done) .printer-slot::after {
     animation: none !important;
   }
