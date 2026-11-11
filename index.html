@@ -16,7 +16,7 @@
     <section class="screen" data-screen="landing" aria-labelledby="landing-title">
       <p class="kicker">不是测试 · 不算命</p>
       <h1 id="landing-title">今晚的比较小票</h1>
-      <p class="lede">今天你想到了谁？写下来打成一张热敏小票。要比一口也可以，不要也行。然后归档，或撕掉。</p>
+      <p class="lede">今天你想到了谁。写成一张热敏小票，然后归档，或撕掉。没有可比的人，也能写。怒火和思念，都能写在同一张票上。</p>
       <div class="hero-slip" aria-hidden="true">
         <span class="hero-rule"></span>
         <span>想到　　过去的自己</span>
@@ -33,8 +33,9 @@
     <section class="screen" data-screen="form" aria-labelledby="form-title">
       <h1 id="form-title" class="screen-title">打票</h1>
 
-      <fieldset>
-        <legend>今天你想到了谁？</legend>
+      <fieldset id="who-block">
+        <legend>今天你想到了谁</legend>
+        <p class="fine">前任、朋友、过去的自己，或一个突然冒出来的人。</p>
         <div class="chips" id="who-chips" role="radiogroup" aria-label="想到了谁"></div>
         <label class="field">
           <span>写一下是谁（可不填）</span>
@@ -44,8 +45,8 @@
       </fieldset>
 
       <label class="field">
-        <span>想到 TA 时，你此刻的感觉（必填，填了才能打印）</span>
-        <input id="feeling" type="text" maxlength="40" placeholder="气、想、酸、空、说不清……随便写一行" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
+        <span>此刻的感觉（可不填。怒火和思念，都能写在同一张票上）</span>
+        <input id="feeling" type="text" maxlength="40" placeholder="怒火、思念，或两个一起" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
         <div class="suggest-chips" id="feeling-suggest" data-for="feeling" aria-label="常用感觉"></div>
         <div class="pinyin-box" id="feeling-pinyin" hidden>
           <p class="pinyin-tip">拼音候选（离线）· 点一下填入</p>
@@ -55,13 +56,13 @@
       </label>
 
       <fieldset>
-        <legend>这念头在你身上停了多久？</legend>
+        <legend>这念头在你身上停了多久？（可不选）</legend>
         <div class="chips" id="duration-chips" role="radiogroup" aria-label="停留多久"></div>
       </fieldset>
 
       <fieldset class="optional-bite" id="compare-optional">
-        <legend>要比一口也可以 <span class="opt-tag">可不填 · 跳过照样打印</span></legend>
-        <p class="opt-lede">不是必须。有一口比较就写；没有就空着。</p>
+        <legend>再写一口比较 <span class="opt-tag">可不填 · 空着也能打票</span></legend>
+        <p class="opt-lede">填完「想到了谁」之后，可以写在这里。</p>
         <label class="field">
           <span>比什么 / 对方有什么（可不填）</span>
           <input id="they-have" type="text" maxlength="40" placeholder="房子 / 签证 / 看起来很确定的人生 / 或不写" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
@@ -69,10 +70,10 @@
         </label>
       </fieldset>
 
-      <button type="button" class="btn primary is-wait" id="btn-print" aria-disabled="true">先写感觉</button>
-      <p class="print-hint" id="print-hint" hidden>写一个词就行，比如：想</p>
+      <button type="button" class="btn primary" id="btn-print" aria-disabled="false">打印</button>
+      <p class="print-hint" id="print-hint" hidden>先选一个，或写下一个称呼</p>
       <button type="button" class="btn ghost" id="btn-form-back">返回</button>
-      <p class="disclaimer">不打分。不解释你是哪种人。比较不是门槛。</p>
+      <p class="disclaimer">不打分。不解释你是哪种人。</p>
     </section>
 
     <section class="screen" data-screen="ticket" aria-live="polite">
