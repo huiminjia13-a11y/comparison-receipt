@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="????">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="橘猫">
   <rect width="64" height="64" rx="10" fill="#14120f"/>
   <rect x="14" y="10" width="36" height="44" rx="2" fill="#f3eee0"/>
   <path d="M14 10h36v4H14z" fill="#e8e1d0"/>
-  <path d="M20 22h24M20 28h18M20 34h22M20 40h14" stroke="#6e4f28" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M20 22h24M20 28h18M20 34h22M20 40h14" stroke="#c45a12" stroke-width="2.2" stroke-linecap="round"/>
   <circle cx="42" cy="44" r="9" fill="none" stroke="#c42b22" stroke-width="2.2" transform="rotate(-18 42 44)"/>
 </svg>

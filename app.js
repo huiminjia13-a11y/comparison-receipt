@@ -35,8 +35,9 @@
   var WHO_NAME_WORDS = [
     "他", "她", "那个人", "不想写名字"
   ];
+  /* 「那个 offer」已在「想到了谁」里，比较一口不再重复 */
   var THEY_HAVE_WORDS = [
-    "那个 offer", "头衔", "看起来很确定的人生", "胆子", "钱", "房子", "签证", "节奏", "人脉"
+    "头衔", "看起来很确定的人生", "胆子", "钱", "房子", "签证", "节奏", "人脉"
   ];
   var STAMPS = ["已付无法退款", "今晚结算", "还在想", "不服"];
   var THOUGHT_COUNT_KEY = "tonight-comparison-receipt-thought-n-v1";
@@ -112,6 +113,8 @@
   var SHARE_TEXT_TEAR = "今晚撕了一张。公开安全空票脸 · 已付无法退款";
   var SHARE_TEXT_WEEK = "本周总票。账单式存根 · 已付无法退款";
   var PET_NAME_KEY = "tonight-comparison-receipt-pet-name";
+  /* 只在玩家明确起名或跳过时写下。旧票记录、空名字都不算已问过。 */
+  var PET_ASKED_KEY = "tonight-comparison-receipt-pet-asked-v1";
   var NIGHT_KEY = "tonight-comparison-receipt-night-v1";
   var EMOTION_BUCKETS = ["酸", "不服", "想", "气", "空", "其他"];
   var WEEKDAY_ZH = {
@@ -134,7 +137,8 @@
     tonightIndex: 0,
     remote: null,
     remoteOk: false,
-    remotePending: true
+    remotePending: true,
+    petPromptAnswered: false
   };
 
   /* 匿名计数：Abacus（CountAPI 继任）。只传固定 key，不传票面/名字/感觉原文。 */
@@ -943,8 +947,21 @@
     if (whoName) whoName.focus();
   }
 
+  function placePet(name) {
+    if (!pet) return;
+    var form = document.querySelector('.screen[data-screen="form"]');
+    if (name === "form" && form) {
+      form.appendChild(pet);
+      pet.classList.add("is-inline");
+      return;
+    }
+    if (pet.parentElement !== document.body) document.body.appendChild(pet);
+    pet.classList.remove("is-inline");
+  }
+
   function show(name) {
     app.dataset.screen = name;
+    placePet(name);
     if (shareSheet) shareSheet.hidden = true;
     if (name === "landing" || name === "form") petMood("idle");
     if (name === "landing") refreshPlaza();
@@ -1029,23 +1046,33 @@
     return '<div class="row"><span class="k">' + k + "</span><span>" + escapeHtml(v) + "</span></div>";
   }
 
+  /* 主感觉优先级。多感觉里同时有气/怒和想/思念时合并成「又气又想」，否则取优先级最高的一个。 */
+  function matchedTones(raw) {
+    var feel = String(raw || "");
+    var tones = [];
+    if (/怒火|怒/.test(feel)) tones.push("怒火");
+    if (/思念|惦记/.test(feel)) tones.push("思念");
+    if (/酸|眼红|羡慕/.test(feel)) tones.push("酸");
+    if (/不服/.test(feel)) tones.push("不服");
+    if (/空|麻/.test(feel)) tones.push("空");
+    if (/想赢|比较上头|上头/.test(feel)) tones.push("想赢");
+    if (/想|还在想/.test(feel) && tones.indexOf("想赢") === -1) tones.push("想");
+    if (/气|烦|咬牙|憋/.test(feel)) tones.push("气");
+    return tones;
+  }
+
   function feelingTone(raw) {
     var feel = String(raw || "");
-    if (/怒火|怒/.test(feel)) return "怒火";
-    if (/思念|惦记/.test(feel)) return "思念";
-    if (/酸|眼红|羡慕/.test(feel)) return "酸";
-    if (/不服/.test(feel)) return "不服";
-    if (/空|空得很|麻/.test(feel)) return "空";
-    if (/想赢|上头|比较上头/.test(feel)) return "想赢";
-    if (/想|还在想/.test(feel)) return "想";
-    if (/气|烦|咬牙|憋/.test(feel)) return "气";
     if (!feel.trim()) return "空票";
-    return "其他";
+    var tones = matchedTones(feel);
+    if (!tones.length) return "其他";
+    var hot = tones.indexOf("怒火") >= 0 || tones.indexOf("气") >= 0;
+    var miss = tones.indexOf("思念") >= 0 || tones.indexOf("想") >= 0;
+    if (tones.length > 1 && hot && miss) return "又气又想";
+    return tones[0];
   }
 
   function pickStamp(ticket) {
-    /* 凌晨夜班章（上海 00:00–05:00）：稀有，压过普通感觉章 */
-    if (ticket && ticket.nightShift) return "凌晨夜班";
     var tone = feelingTone(ticket && ticket.feeling);
     if (tone === "怒火") return "怒火入账";
     if (tone === "思念") return "还在想";
@@ -1055,15 +1082,13 @@
     if (tone === "想赢") return "想赢未退";
     if (tone === "想") return "还在想";
     if (tone === "气") return "今晚结算";
+    if (tone === "又气又想") return "又气又想";
     if (tone === "空票") return "已付无法退款";
     var pool = STAMPS;
     return pool[((ticket && ticket.no) || 0) % pool.length];
   }
 
   function settlementLine(ticket) {
-    if (ticket && ticket.nightShift) {
-      return "夜班加盖。<br>别人睡了，你还在记账。<br><strong>凌晨结算 · 无法退款。</strong>";
-    }
     var tone = feelingTone(ticket && ticket.feeling);
     if (tone === "怒火") return "火气过秤。<br>烫，但算数。<br><strong>怒火入账 · 不退。</strong>";
     if (tone === "思念") return "惦记过秤。<br>不解释好不好。<br><strong>还在想 · 已付。</strong>";
@@ -1073,13 +1098,14 @@
     if (tone === "想赢") return "想赢写进存根。<br>赢不赢另说。<br><strong>想赢未退 · 已付。</strong>";
     if (tone === "想") return "又想到了。<br>记下就好。<br><strong>还在想 · 无法退款。</strong>";
     if (tone === "气") return "气过这一下。<br>不评价你。<br><strong>今晚结算 · 已付。</strong>";
+    if (tone === "又气又想") return "气和想都在。<br>两笔一起入账。<br><strong>又气又想 · 不退。</strong>";
     if (tone === "空票") return "比较不是病。<br>是燃料。<br><strong>今晚结算 · 已付无法退款。</strong>";
     return "这一笔入账。<br>不排名、不诊断。<br><strong>今晚结算 · 已付无法退款。</strong>";
   }
 
   function petReactToFeeling(feeling) {
     var tone = feelingTone(feeling);
-    if (tone === "怒火" || tone === "气") {
+    if (tone === "又气又想" || tone === "怒火" || tone === "气") {
       petMood("flick");
       later(function () { petMood("watch"); }, 480);
       return;
@@ -1169,12 +1195,19 @@
 
   function receiptHtml(ticket) {
     var stamp = ticket.stamp || pickStamp(ticket);
+    var nightStamp = ticket.nightStamp || "";
     var settle = ticket.settlement || settlementLine(ticket);
     var tonight = ticket.tonightIndex ? "今晚第 " + ticket.tonightIndex + " 张" : "合计 今晚 × 1";
     var nth =
       ticket.thoughtN && ticket.thoughtN >= 2
         ? '<div class="receipt-nth">这是你第 ' + ticket.thoughtN + " 次想到 TA</div>"
         : "";
+    var nightNote = nightStamp
+      ? '<div class="night-note">夜班加盖。<br>别人睡了，你还在记账。</div>'
+      : "";
+    var nightMark = nightStamp
+      ? '<div class="stamp stamp-night">' + escapeHtml(nightStamp) + "</div>"
+      : "";
     return (
       '<div class="receipt-head">今晚的比较小票</div>' +
       '<div class="receipt-sub">今天想到了谁 · 热敏存根</div>' +
@@ -1188,9 +1221,10 @@
       receiptRow("比一口", ticket.theyHave) +
       '<div class="dash"></div>' +
       '<div class="verdict">' + settle + "</div>" +
+      nightNote +
       '<div class="dash"></div>' +
       '<div class="receipt-no"><span>No. ' + padNo(ticket.no) + "</span><span>" + escapeHtml(tonight) + "</span></div>" +
-      '<div class="stamp-slot"><div class="stamp">' + escapeHtml(stamp) + "</div></div>" +
+      '<div class="stamp-slot"><div class="stamp">' + escapeHtml(stamp) + "</div>" + nightMark + "</div>" +
       '<div class="receipt-foot">本机存根 · 默认不分享。<br>票面时钟为本机时区 · 「今晚」按上海日界。<br>不是心理咨询、不算命、不保证心情变好。</div>'
     );
   }
@@ -1220,8 +1254,10 @@
     };
     var thoughtKey = normalizeThoughtKey(draft);
     draft.thoughtN = bumpThoughtCount(thoughtKey);
+    /* 感觉章 / 结算语始终按感觉。凌晨夜班只是第二枚章和一句副句。 */
     draft.stamp = pickStamp(draft);
     draft.settlement = settlementLine(draft);
+    draft.nightStamp = nightShift ? "凌晨夜班" : "";
     return draft;
   }
 
@@ -1229,7 +1265,7 @@
     return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  var PRINT_MS = 2400;
+  var PRINT_MS = 1900;
 
   function startPrint() {
     if (!printReady()) {
@@ -1275,7 +1311,7 @@
     window.requestAnimationFrame(function () {
       receiptEl.classList.add("is-out");
     });
-    later(finishPrint, PRINT_MS + 100);
+    later(finishPrint, PRINT_MS + 40);
   }
 
   // 纸完全出来 → 盖章落下 → 才出现「归档 / 撕掉」
@@ -1299,7 +1335,7 @@
       state.canAct = true;
       refreshPlaza();
       maybeAskPetName();
-    }, reduce ? 150 : 520);
+    }, reduce ? 120 : 260);
   }
 
   function archiveTicket() {
@@ -1800,6 +1836,7 @@
       more.className = "suggest-chip is-more";
       more.textContent = "更多";
       more.setAttribute("aria-expanded", "false");
+      more.setAttribute("aria-label", "展开更多感觉");
       more.addEventListener("click", function (e) {
         e.stopPropagation();
         FEELING_MORE_OPEN = true;
@@ -1816,7 +1853,7 @@
   document.querySelectorAll(".suggest-chips").forEach(function (root) {
     root.addEventListener("click", function (e) {
       var btn = e.target.closest(".suggest-chip");
-      if (!btn) return;
+      if (!btn || btn.classList.contains("is-more")) return;
       var forId = root.id === "feeling-pinyin-list" ? "feeling" : root.getAttribute("data-for");
       var input = document.getElementById(forId);
       fillFromChip(input, btn.dataset.value, btn.dataset.mode || "set");
@@ -1879,15 +1916,36 @@
     try {
       return localStorage.getItem(PET_NAME_KEY);
     } catch (e) {
-      return "";
+      return null;
     }
   }
 
-  function writePetName(name) {
+  function petPromptAnswered() {
+    if (state.petPromptAnswered) return true;
     try {
-      localStorage.setItem(PET_NAME_KEY, name);
+      if (localStorage.getItem(PET_ASKED_KEY) === "1") {
+        state.petPromptAnswered = true;
+        return true;
+      }
+      /* 旧版本只有非空名字才算已经起过名。空字符串是旧跳过或未写，不能挡住这次提问。 */
+      var name = localStorage.getItem(PET_NAME_KEY);
+      if (name && String(name).trim()) {
+        state.petPromptAnswered = true;
+        try { localStorage.setItem(PET_ASKED_KEY, "1"); } catch (e2) { /* ignore */ }
+        return true;
+      }
     } catch (e) { /* ignore */ }
-    petNameTag.textContent = name || "";
+    return false;
+  }
+
+  function writePetAnswer(name) {
+    var clean = name || "";
+    state.petPromptAnswered = true;
+    try {
+      localStorage.setItem(PET_ASKED_KEY, "1");
+      localStorage.setItem(PET_NAME_KEY, clean);
+    } catch (e) { /* ignore */ }
+    if (petNameTag) petNameTag.textContent = clean;
   }
 
   function wirePetNameSlip() {
@@ -1896,20 +1954,20 @@
     slip.dataset.wired = "1";
     document.getElementById("btn-name-ok").addEventListener("click", function () {
       var v = document.getElementById("pet-name-input").value.trim();
-      writePetName(v);
+      writePetAnswer(v);
       slip.hidden = true;
     });
     document.getElementById("btn-name-skip").addEventListener("click", function () {
-      writePetName("");
+      writePetAnswer("");
       slip.hidden = true;
     });
   }
 
-  /* 第一次见到这只狸花猫：等首张票打出、猫出现后再问，不打断首页 */
+  /* 第一次见到这只橘猫：等这一张票打出后再问。旧票记录不算已经问过。 */
   function maybeAskPetName() {
-    var existing = readPetName();
-    if (existing !== null) {
-      petNameTag.textContent = existing;
+    if (petPromptAnswered()) {
+      var existing = readPetName();
+      if (existing && petNameTag) petNameTag.textContent = existing;
       return;
     }
     var slip = document.getElementById("name-slip");
@@ -1919,13 +1977,11 @@
   }
 
   (function initPetName() {
-    var existing = readPetName();
-    if (existing !== null) {
-      petNameTag.textContent = existing;
-      return;
-    }
     var slip = document.getElementById("name-slip");
     if (slip) slip.hidden = true;
+    if (!petPromptAnswered()) return;
+    var existing = readPetName();
+    if (existing && petNameTag) petNameTag.textContent = existing;
   })();
 
   function shareCaption() {
@@ -2083,6 +2139,7 @@
     var feelStr = privateMode ? (ticket.feeling || "—") : "████";
     var biteStr = privateMode ? (ticket.theyHave || "—") : "████";
     var stamp = ticket ? (ticket.stamp || pickStamp(ticket)) : "今晚结算";
+    var nightStamp = ticket && ticket.nightStamp ? ticket.nightStamp : "";
     var settlePlain = ticket
       ? String(ticket.settlement || settlementLine(ticket)).replace(/<br\s*\/?>/gi, " ").replace(/<\/?strong>/gi, "")
       : "比较不是病。是燃料。";
@@ -2102,14 +2159,20 @@
     ctx.textAlign = "center";
     ctx.fillStyle = "#c9a227";
     ctx.font = "700 34px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
-    ctx.fillText(stamp, w / 2, y + 700);
+    ctx.fillText(stamp, w / 2, y + 688);
     ctx.fillStyle = "#4a453c";
     ctx.font = "22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
-    ctx.fillText(privateMode ? settlePlain : "比较不是病。是燃料。", w / 2, y + 760);
-    ctx.fillText(privateMode ? "本机完整票脸 · 自行决定是否外传" : "公开默认打码 · 不含真名与感受", w / 2, y + 820);
-    ctx.fillText("不是心理咨询、不算命、不保证心情变好。", w / 2, y + 870);
+    ctx.fillText(privateMode ? settlePlain : "比较不是病。是燃料。", w / 2, y + 742);
+    if (nightStamp) {
+      ctx.font = "18px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+      ctx.fillText("夜班加盖 · 别人睡了，你还在记账。", w / 2, y + 786);
+    }
+    ctx.font = "22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillText(privateMode ? "本机完整票脸 · 自行决定是否外传" : "公开默认打码 · 不含真名与感受", w / 2, y + 832);
+    ctx.fillText("不是心理咨询、不算命、不保证心情变好。", w / 2, y + 874);
 
     drawStamp(ctx, x + pw - 120, y + 900, stamp);
+    if (nightStamp) drawStamp(ctx, x + 150, y + 860, nightStamp);
 
     ctx.fillStyle = "rgba(232, 195, 122, 0.75)";
     ctx.font = "16px PingFang SC, sans-serif";
