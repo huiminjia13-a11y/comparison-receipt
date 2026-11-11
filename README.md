@@ -34,9 +34,17 @@
 
 出票完成后可点「一键晒图」：下载热敏风 PNG（日期、票号、今晚第几张、章与金句）。默认**公开安全空票脸**；需要时再切「本机完整」。归档 / 撕掉后仍可再晒。不用自己裁屏。
 
-入口与票旁会显示今晚聚合：「本机今晚 N 张 · 广场今晚约 M 人 · X% 选了『酸』」。只统计人数与词桶占比，**不展示任何人的票面**。广场数字是本机日历夜种子 + 你本机贡献的氛围估算，不是已核实的全球实况。小票正文只存在本机。
+入口与票旁会显示：「本机今晚 N 张 · 广场累计打开 / 打票 · 粗情绪桶占比」。连得上远程时显示**匿名实计**；连不上（含 `file://`、断网、接口失败）就诚实写「只显示本机」。**从不上传**想到的人、感觉原文或任何票面。远程只记三个量：打开、打票成功、粗情绪桶（酸/不服/想/气/空/其他）。
 
-只统计匿名访问次数，不记录票的内容。页面能上网时，用 GoatCounter（站点 `comparison-receipt`，地址 `https://comparison-receipt.goatcounter.com/count`）记一次打开，并在开始打票、打印小票、归档、撕票时各记一次次数。不上传想到的人、感觉文字或任何输入。用 `file://` 打开，或统计脚本被拦截时，游戏照常运行。
+### 慧敏怎么读匿名用量（owner）
+
+免费计数服务 [Abacus](https://abacus.jasoncameron.dev)（CountAPI 继任），命名空间 `huiminjia13-comparison-receipt`。浏览器或终端直接打开即可看当前数字（只读，不递增）：
+
+- 累计打开：https://abacus.jasoncameron.dev/get/huiminjia13-comparison-receipt/opens  
+- 累计打票：https://abacus.jasoncameron.dev/get/huiminjia13-comparison-receipt/prints  
+- 情绪桶（例·酸）：https://abacus.jasoncameron.dev/get/huiminjia13-comparison-receipt/emo-suan  
+
+其余桶 key：`emo-bufu` / `emo-xiang` / `emo-qi` / `emo-kong` / `emo-qita`。没有独立登录后台；数字对知道 URL 的人可见，勿当机密。
 
 ## 云桌面 / 电脑怎么打中文（离线）
 

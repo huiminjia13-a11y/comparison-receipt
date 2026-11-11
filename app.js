@@ -127,38 +127,62 @@
     printTimer: null,
     timers: [],
     canAct: false,
-    tonightIndex: 0
+    tonightIndex: 0,
+    remote: null,
+    remoteOk: false,
+    remotePending: true
   };
 
-  /* 只上传这四个固定事件名。不传想到的人、感觉、票面或任何输入。 */
-  var COUNT_EVENTS = {
-    start: "开始打票",
-    print: "打印小票",
-    archive: "归档",
-    tear: "撕票"
+  /* 匿名计数：Abacus（CountAPI 继任）。只传固定 key，不传票面/名字/感觉原文。 */
+  var COUNTER_NS = "huiminjia13-comparison-receipt";
+  var COUNTER_BASE = "https://abacus.jasoncameron.dev";
+  var EMO_KEY = {
+    "酸": "emo-suan",
+    "不服": "emo-bufu",
+    "想": "emo-xiang",
+    "气": "emo-qi",
+    "空": "emo-kong",
+    "其他": "emo-qita"
   };
 
-  function countEvent(name) {
+  function counterUrl(action, key) {
+    return COUNTER_BASE + "/" + action + "/" + COUNTER_NS + "/" + encodeURIComponent(key);
+  }
+
+  function canUseRemoteCounter() {
     try {
-      if (
-        name !== COUNT_EVENTS.start &&
-        name !== COUNT_EVENTS.print &&
-        name !== COUNT_EVENTS.archive &&
-        name !== COUNT_EVENTS.tear
-      ) {
-        return;
-      }
-      var gc = window.goatcounter;
-      if (!gc || typeof gc.count !== "function") return;
-      gc.count({
-        path: name,
-        title: name,
-        event: true,
-        no_session: true
-      });
+      return location.protocol === "http:" || location.protocol === "https:";
     } catch (e) {
-      /* 脚本没加载、被拦截，或 file:// 下没有计数器时，游戏继续。 */
+      return false;
     }
+  }
+
+  function fetchCounterJson(url) {
+    return fetch(url, {
+      method: "GET",
+      mode: "cors",
+      credentials: "omit",
+      cache: "no-store"
+    }).then(function (res) {
+      if (!res.ok) throw new Error("counter " + res.status);
+      return res.json();
+    }).then(function (data) {
+      var n = Number(data && data.value);
+      if (!isFinite(n) || n < 0) throw new Error("bad value");
+      return n;
+    });
+  }
+
+  function hitCounter(key) {
+    if (!canUseRemoteCounter()) return Promise.reject(new Error("offline"));
+    return fetchCounterJson(counterUrl("hit", key));
+  }
+
+  function getCounter(key) {
+    if (!canUseRemoteCounter()) return Promise.reject(new Error("offline"));
+    return fetchCounterJson(counterUrl("get", key)).catch(function () {
+      return 0;
+    });
   }
 
   function later(fn, ms) {
@@ -466,15 +490,6 @@
     return p.year + "-" + p.month + "-" + p.day;
   }
 
-  function hashStr(str) {
-    var h = 2166136261;
-    for (var i = 0; i < str.length; i++) {
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return h >>> 0;
-  }
-
   function emptyEmotions() {
     var o = {};
     EMOTION_BUCKETS.forEach(function (k) { o[k] = 0; });
@@ -521,54 +536,53 @@
     } catch (e) { /* ignore */ }
   }
 
-  /* 广场今晚：日历夜种子 + 本机贡献。诚实标注为氛围估算，不装作已核实全球实况。 */
-  function seededPlaza(key) {
-    var h = hashStr("plaza|" + key);
-    var people = 48 + (h % 173);
-    var emotions = emptyEmotions();
-    var weights = [0.22, 0.18, 0.2, 0.16, 0.1, 0.14];
-    var wobble = ((h >>> 8) % 17) - 8;
-    weights[0] = Math.max(0.12, Math.min(0.42, weights[0] + wobble / 100));
-    var rest = 1 - weights[0];
-    var sumW = weights.slice(1).reduce(function (a, b) { return a + b; }, 0);
-    for (var i = 1; i < weights.length; i++) weights[i] = (weights[i] / sumW) * rest;
-    var assigned = 0;
-    EMOTION_BUCKETS.forEach(function (k, idx) {
-      if (idx === EMOTION_BUCKETS.length - 1) {
-        emotions[k] = Math.max(0, people - assigned);
-      } else {
-        var n = Math.round(people * weights[idx]);
-        emotions[k] = n;
-        assigned += n;
+  function topEmotionFrom(emotions, totalHint) {
+    var top = "酸";
+    var topN = -1;
+    EMOTION_BUCKETS.forEach(function (k) {
+      if ((emotions[k] || 0) > topN) {
+        topN = emotions[k] || 0;
+        top = k;
       }
     });
-    return { people: people, emotions: emotions };
+    var denom = Number(totalHint);
+    if (!isFinite(denom) || denom <= 0) {
+      denom = EMOTION_BUCKETS.reduce(function (a, k) {
+        return a + (emotions[k] || 0);
+      }, 0);
+    }
+    var pct = denom > 0 ? Math.round((topN / denom) * 100) : 0;
+    return { top: top, pct: pct, topN: topN };
   }
 
   function plazaSnapshot() {
     var local = loadNight();
-    var seed = seededPlaza(local.night);
-    var people = seed.people + local.prints;
-    var emotions = emptyEmotions();
-    EMOTION_BUCKETS.forEach(function (k) {
-      emotions[k] = (seed.emotions[k] || 0) + (local.emotions[k] || 0);
-    });
-    var top = "酸";
-    var topN = -1;
-    EMOTION_BUCKETS.forEach(function (k) {
-      if (emotions[k] > topN) {
-        topN = emotions[k];
-        top = k;
-      }
-    });
-    var pct = people > 0 ? Math.round((emotions[top] / people) * 100) : 0;
+    if (state.remoteOk && state.remote) {
+      var remote = state.remote;
+      var rank = topEmotionFrom(remote.emotions, remote.prints);
+      return {
+        night: local.night,
+        localPrints: local.prints,
+        source: "remote",
+        opens: remote.opens,
+        prints: remote.prints,
+        people: remote.prints,
+        top: rank.top,
+        pct: rank.pct,
+        emotions: remote.emotions
+      };
+    }
+    var localRank = topEmotionFrom(local.emotions, local.prints);
     return {
       night: local.night,
       localPrints: local.prints,
-      people: people,
-      top: top,
-      pct: pct,
-      emotions: emotions
+      source: state.remotePending ? "pending" : "local",
+      opens: 0,
+      prints: local.prints,
+      people: local.prints,
+      top: localRank.top,
+      pct: localRank.pct,
+      emotions: local.emotions
     };
   }
 
@@ -579,23 +593,36 @@
     night.emotions[bucket] = (night.emotions[bucket] || 0) + 1;
     saveNight(night);
     state.tonightIndex = night.prints;
-    return night;
+    return { night: night, bucket: bucket };
   }
 
   function formatPlazaLine(snap) {
     var localBit = snap.localPrints
       ? "本机今晚 " + snap.localPrints + " 张 · "
       : "本机今晚还没打 · ";
-    return (
-      localBit +
-      "广场今晚约 " +
-      snap.people +
-      " 人打了票 · " +
-      snap.pct +
-      "% 选了『" +
-      snap.top +
-      "』（氛围估算 · 不含票面）"
-    );
+    if (snap.source === "pending") {
+      return localBit + "正在连广场计数…";
+    }
+    if (snap.source === "remote") {
+      var emoBit =
+        snap.prints > 0
+          ? " · " + snap.pct + "% 选了『" + snap.top + "』"
+          : "";
+      return (
+        localBit +
+        "广场累计打开 " +
+        snap.opens +
+        " · 打票 " +
+        snap.prints +
+        emoBit +
+        "（匿名实计 · 不含票面）"
+      );
+    }
+    var localEmo =
+      snap.localPrints > 0
+        ? " · 本机 " + snap.pct + "% 『" + snap.top + "』"
+        : "";
+    return localBit + "广场计数暂时连不上 · 只显示本机" + localEmo + "（不含票面）";
   }
 
   function refreshPlaza() {
@@ -604,12 +631,98 @@
     if (tonightChip) {
       if (state.tonightIndex > 0) {
         tonightChip.hidden = false;
-        tonightChip.textContent =
-          "今晚第 " + state.tonightIndex + " 张 · 广场约 " + snap.people + " 人在";
+        if (snap.source === "remote") {
+          tonightChip.textContent =
+            "今晚第 " + state.tonightIndex + " 张 · 广场累计打票 " + snap.prints;
+        } else if (snap.source === "pending") {
+          tonightChip.textContent = "今晚第 " + state.tonightIndex + " 张 · 广场计数连接中";
+        } else {
+          tonightChip.textContent =
+            "今晚第 " + state.tonightIndex + " 张 · 广场未连上 · 本机 " + snap.localPrints;
+        }
       } else {
         tonightChip.hidden = true;
       }
     }
+  }
+
+  function applyRemoteCounts(opens, prints, emotions) {
+    state.remote = {
+      opens: opens,
+      prints: prints,
+      emotions: emotions
+    };
+    state.remoteOk = true;
+    state.remotePending = false;
+    refreshPlaza();
+  }
+
+  function markRemoteFailed() {
+    state.remoteOk = false;
+    state.remotePending = false;
+    refreshPlaza();
+  }
+
+  function loadRemotePlaza() {
+    if (!canUseRemoteCounter()) {
+      markRemoteFailed();
+      return Promise.resolve();
+    }
+    state.remotePending = true;
+    refreshPlaza();
+    var emoGets = EMOTION_BUCKETS.map(function (label) {
+      return getCounter(EMO_KEY[label]).then(function (n) {
+        return { label: label, n: n };
+      });
+    });
+    return Promise.all([
+      getCounter("opens"),
+      getCounter("prints"),
+      Promise.all(emoGets)
+    ]).then(function (parts) {
+      var emotions = emptyEmotions();
+      parts[2].forEach(function (row) {
+        emotions[row.label] = row.n;
+      });
+      applyRemoteCounts(parts[0], parts[1], emotions);
+    }).catch(function () {
+      markRemoteFailed();
+    });
+  }
+
+  function bumpRemoteOpen() {
+    if (!canUseRemoteCounter()) {
+      markRemoteFailed();
+      return;
+    }
+    hitCounter("opens").then(function (opens) {
+      var prev = state.remote || { opens: 0, prints: 0, emotions: emptyEmotions() };
+      applyRemoteCounts(opens, prev.prints, prev.emotions);
+      return loadRemotePlaza();
+    }).catch(function () {
+      markRemoteFailed();
+    });
+  }
+
+  function bumpRemotePrint(bucket) {
+    if (!canUseRemoteCounter()) return;
+    var emoKey = EMO_KEY[bucket] || EMO_KEY["其他"];
+    Promise.all([hitCounter("prints"), hitCounter(emoKey)])
+      .then(function (parts) {
+        var emotions = emptyEmotions();
+        if (state.remote && state.remote.emotions) {
+          EMOTION_BUCKETS.forEach(function (k) {
+            emotions[k] = state.remote.emotions[k] || 0;
+          });
+        }
+        emotions[bucket] = parts[1];
+        var opens = state.remote ? state.remote.opens : 0;
+        applyRemoteCounts(opens, parts[0], emotions);
+      })
+      .catch(function () {
+        /* 打票本机已记；远程失败时下次刷新会诚实标本机 */
+        loadRemotePlaza();
+      });
   }
 
   function isTokyoSunday(date) {
@@ -880,14 +993,14 @@
       nudgeWho();
       return;
     }
-    countEvent(COUNT_EVENTS.print);
     Sound.unlock();
     var store = loadStore();
     var ticket = buildTicket();
     store.seq = ticket.no;
     saveStore(store);
-    var night = recordTonightPrint(ticket.feeling);
-    ticket.tonightIndex = night.prints;
+    var recorded = recordTonightPrint(ticket.feeling);
+    ticket.tonightIndex = recorded.night.prints;
+    bumpRemotePrint(recorded.bucket);
     state.ticket = ticket;
     state.canAct = false;
     clearTimers();
@@ -948,7 +1061,6 @@
 
   function archiveTicket() {
     if (!state.ticket || !state.canAct) return;
-    countEvent(COUNT_EVENTS.archive);
     state.canAct = false;
     var store = loadStore();
     store.archived.push({
@@ -1008,7 +1120,6 @@
 
   function tearTicket() {
     if (!state.ticket || !state.canAct) return;
-    countEvent(COUNT_EVENTS.tear);
     state.canAct = false;
     ticketActions.hidden = true;
     printStatus.textContent = "";
@@ -1266,7 +1377,6 @@
 
   document.getElementById("btn-start").addEventListener("click", function () {
     Sound.unlock();
-    countEvent(COUNT_EVENTS.start);
     resetForm();
     show("form");
   });
@@ -1931,11 +2041,12 @@
   document.getElementById("btn-share-download").addEventListener("click", shareDownload);
   document.getElementById("btn-share-close").addEventListener("click", closeShareSheet);
 
-  /* 启动：刷新广场数字；周日进抽屉会提示周总票 */
-  refreshPlaza();
+  /* 启动：本机今晚 + 匿名远程计数（失败则诚实标本机） */
   try {
     state.tonightIndex = loadNight().prints || 0;
   } catch (e) {
     state.tonightIndex = 0;
   }
+  refreshPlaza();
+  bumpRemoteOpen();
 })();
