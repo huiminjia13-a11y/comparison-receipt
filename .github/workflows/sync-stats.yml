@@ -1,7 +1,8 @@
 name: Sync Abacus stats mirror
 
-# Periodically mirrors anonymous Abacus totals into same-origin stats.json on
-# gh-pages so the China-reachable stats page does not call abacus.jasoncameron.dev.
+# Mirrors anonymous Abacus totals into same-origin stats.json on main.
+# GitHub Pages for this repo currently serves from main (not gh-pages),
+# so the China-reachable stats page reads this committed file.
 
 on:
   schedule:
@@ -20,19 +21,32 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
       - name: Fetch Abacus counters → stats.json
         env:
           NS: huiminjia13-comparison-receipt
           BASE: https://abacus.jasoncameron.dev
         run: |
           set -euo pipefail
-          mkdir -p _mirror
           python3 <<'PY'
           import json, os, time, urllib.error, urllib.request
           from datetime import datetime, timezone
+          from pathlib import Path
 
           NS = os.environ["NS"]
           BASE = os.environ["BASE"].rstrip("/")
+          path = Path("stats.json")
+          prev = {}
+          if path.exists():
+              try:
+                  prev = json.loads(path.read_text(encoding="utf-8"))
+              except Exception:
+                  prev = {}
+          prev_emotions = prev.get("emotions") if isinstance(prev.get("emotions"), dict) else {}
+
           keys = [
               ("opens", None),
               ("prints", None),
@@ -44,7 +58,7 @@ jobs:
               ("emo-qita", "其他"),
           ]
 
-          def get_value(key: str) -> int:
+          def get_value(key: str):
               url = f"{BASE}/get/{NS}/{key}"
               for attempt in range(3):
                   try:
@@ -60,16 +74,27 @@ jobs:
                   except Exception as e:
                       print(f"warn {key}: {e}")
                   time.sleep(1 + attempt)
-              print(f"WARN: failed to read {key}; defaulting to 0")
-              return 0
+              print(f"WARN: failed to read {key}")
+              return None
 
           opens = get_value("opens")
           prints = get_value("prints")
+          if opens is None:
+              opens = int(prev.get("opens") or 0)
+              print(f"keeping previous opens={opens}")
+          if prints is None:
+              prints = int(prev.get("prints") or 0)
+              print(f"keeping previous prints={prints}")
+
           emotions = {}
           for key, label in keys:
               if label is None:
                   continue
-              emotions[label] = get_value(key)
+              n = get_value(key)
+              if n is None:
+                  n = int(prev_emotions.get(label) or 0)
+                  print(f"keeping previous {label}={n}")
+              emotions[label] = n
 
           data = {
               "namespace": NS,
@@ -80,19 +105,19 @@ jobs:
               "emotions": emotions,
               "note": "Anonymous lifetime totals only. No ticket content. Abacus remains source of truth for increments.",
           }
-          with open("_mirror/stats.json", "w", encoding="utf-8") as f:
-              json.dump(data, f, ensure_ascii=False, indent=2)
-              f.write("\n")
+          path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
           print(json.dumps(data, ensure_ascii=False, indent=2))
           PY
 
-      - name: Publish stats.json to gh-pages (keep other site files)
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./_mirror
-          destination_dir: .
-          keep_files: true
-          force_orphan: false
-          enable_jekyll: false
-          commit_message: "chore: mirror Abacus stats.json for China-reachable page"
+      - name: Commit stats.json to main when changed
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stats.json
+          if git diff --cached --quiet; then
+            echo "stats.json unchanged"
+            exit 0
+          fi
+          git commit -m "chore: mirror Abacus stats.json for China-reachable page"
+          git push origin HEAD:main

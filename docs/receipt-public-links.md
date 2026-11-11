@@ -17,7 +17,7 @@ https://huiminjia13-a11y.github.io/comparison-receipt/
 https://huiminjia13-a11y.github.io/comparison-receipt/stats.html
 
 - 只读同源 `stats.json`（打开 / 打票 / 粗情绪桶）  
-- **不存票面**；GitHub Action 定时从 Abacus 镜像到 `gh-pages`  
+- **不存票面**；Action 定时从 Abacus 写回 `main` 的 `stats.json`（本站 Pages 当前从 `main` 发布）  
 - 原始 JSON：https://huiminjia13-a11y.github.io/comparison-receipt/stats.json  
 - Abacus 直链在国内常被拦；用量页给国内看数用  
 

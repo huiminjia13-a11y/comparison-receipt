@@ -63,10 +63,18 @@ jobs:
                   time.sleep(1 + attempt)
               return None
 
+          prev = {}
+          try:
+              with open("_site/stats.json", encoding="utf-8") as f:
+                  prev = json.load(f)
+          except Exception:
+              prev = {}
+          prev_emotions = prev.get("emotions") if isinstance(prev.get("emotions"), dict) else {}
+
           opens = get_value("opens")
           prints = get_value("prints")
           if opens is None or prints is None:
-              print("Abacus unreachable; keeping committed stats.json")
+              print("Abacus unreachable for opens/prints; keeping committed stats.json")
               raise SystemExit(0)
 
           emotions = {}
@@ -74,7 +82,10 @@ jobs:
               if label is None:
                   continue
               n = get_value(key)
-              emotions[label] = 0 if n is None else n
+              if n is None:
+                  n = int(prev_emotions.get(label) or 0)
+                  print(f"keeping previous {label}={n}")
+              emotions[label] = n
 
           data = {
               "namespace": NS,
