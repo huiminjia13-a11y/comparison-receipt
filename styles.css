@@ -118,7 +118,16 @@ h1 {
 }
 
 .hero-slip {
-  background: var(--paper);
+  background:
+    linear-gradient(165deg, transparent 62%, rgba(180, 160, 120, 0.1) 100%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(80, 60, 30, 0.016) 2px,
+      rgba(80, 60, 30, 0.016) 3px
+    ),
+    var(--paper);
   color: var(--ink);
   padding: 22px 16px 18px;
   font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
@@ -129,7 +138,9 @@ h1 {
   flex-direction: column;
   position: relative;
   transform: rotate(-1.4deg);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.35),
+    inset 0 -8px 14px rgba(120, 100, 70, 0.06);
   overflow: hidden;
 }
 
@@ -443,15 +454,45 @@ input[type="text"]:focus {
 }
 
 .receipt {
-  background: var(--paper);
+  background:
+    linear-gradient(165deg, transparent 62%, rgba(180, 160, 120, 0.12) 100%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(80, 60, 30, 0.018) 2px,
+      rgba(80, 60, 30, 0.018) 3px
+    ),
+    var(--paper);
   color: var(--ink);
   padding: 22px 18px 18px;
   font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
   font-size: 13px;
   line-height: 1.7;
   position: relative;
-  box-shadow: 0 22px 40px rgba(0, 0, 0, 0.38);
+  box-shadow:
+    0 22px 40px rgba(0, 0, 0, 0.38),
+    inset 0 -10px 18px rgba(120, 100, 70, 0.08);
   clip-path: inset(0 0 100% 0);
+}
+
+/* 纸边轻卷：热敏纸出完后的一点手感，不另加功能 */
+.receipt.is-shown::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 14px;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(90, 70, 40, 0.07) 55%,
+    rgba(40, 30, 18, 0.12) 100%
+  );
+  border-radius: 0 0 2px 40% / 0 0 8px 10px;
+  box-shadow: 0 1px 0 rgba(255, 250, 240, 0.35) inset;
 }
 
 .receipt.is-out {
@@ -548,6 +589,8 @@ input[type="text"]:focus {
   opacity: 0;
   mix-blend-mode: multiply;
   pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(196, 43, 34, 0.12) inset;
+  text-shadow: 0.4px 0.4px 0 rgba(120, 20, 16, 0.25);
 }
 
 .receipt.is-stamped .stamp {
@@ -726,12 +769,35 @@ input[type="text"]:focus {
 }
 
 .settle {
-  background: var(--paper);
+  background:
+    linear-gradient(168deg, transparent 70%, rgba(180, 160, 120, 0.1) 100%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(80, 60, 30, 0.016) 2px,
+      rgba(80, 60, 30, 0.016) 3px
+    ),
+    var(--paper);
   color: var(--ink);
   padding: 16px 14px 14px;
   font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
   font-size: 13px;
   line-height: 1.7;
+  box-shadow: inset 0 -8px 14px rgba(120, 100, 70, 0.06);
+  position: relative;
+}
+
+.settle::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 10px;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(40, 30, 18, 0.1));
+  border-radius: 0 0 1px 35% / 0 0 6px 8px;
 }
 
 .settle-head {
