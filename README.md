@@ -4,11 +4,13 @@
 
 ## 在线打开（手机 / 电脑同一链接）
 
-GitHub Pages（仓库需为 **public**，从 `main` 根目录部署）：
+**立刻可玩（已验证）：** https://quick-tin-vws2x8y.tmp.now/  
+（临时公开部署；过期后见下方持久方案）
 
-**https://huiminjia13-a11y.github.io/comparison-receipt/**
+**持久 GitHub Pages（目标址）：** https://huiminjia13-a11y.github.io/comparison-receipt/  
+仓库改 **Public** 后，在 Settings → Pages 选 GitHub Actions；`main` 上已有 `.github/workflows/pages.yml`。
 
-手机与电脑同一地址。推送到 `main` 后由 Actions 自动发布（见 `.github/workflows/pages.yml`）。若仓库仍是 private，先在 GitHub → Settings → General → Danger Zone 改为 Public，再开 Pages（或等 Actions 首次成功）。
+手机与电脑用同一地址即可。
 
 ## 慧敏怎么打开（本地）
 
