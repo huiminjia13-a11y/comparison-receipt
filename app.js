@@ -1011,10 +1011,15 @@
     if (!input) return;
     if (input.dataset.composing === "1") return;
     var next = value;
-    if (mode === "append") {
-      var cur = input.value.trim();
+    var cur = input.value.trim();
+    /* 同一词再点一次 → 拼一句（追加）；已有别的词时也可追加短句 */
+    if (mode === "append" || (cur && cur !== value && input.id === "feeling")) {
       next = cur ? cur + "，" + value : value;
       if (next.length > (input.maxLength || 40)) next = value;
+    } else if (cur === value && input.id === "feeling") {
+      /* 再点同一词不重复填 */
+      input.focus();
+      return;
     }
     input.value = next;
     input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -1132,6 +1137,16 @@
         e.preventDefault();
         startPrint();
       }
+    });
+    /* 手机打好粘贴到云桌面：粘贴后同步打印按钮与拼音栏 */
+    el.addEventListener("paste", function () {
+      window.setTimeout(function () {
+        if (el.dataset.composing === "1") return;
+        if (el === feeling) {
+          syncPrintEnabled();
+          syncFeelingPinyin();
+        }
+      }, 0);
     });
   });
 
