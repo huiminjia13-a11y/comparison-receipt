@@ -14,15 +14,16 @@
     <header class="mast">夜间小票受理处</header>
 
     <section class="screen" data-screen="landing" aria-labelledby="landing-title">
-      <p class="kicker">不是测试 · 不算命</p>
+      <p class="kicker">不是测试 · 不算命 · 不疗愈</p>
       <h1 id="landing-title">今晚的比较小票</h1>
-      <p class="lede">今天你想到了谁。写成一张热敏小票，然后归档，或撕掉。没有可比的人，也能写。怒火和思念，都能写在同一张票上。</p>
+      <p class="lede">想到谁，就打一张热敏小票。盖章。归档，或撕掉。比较可空。不服、惦记、想赢，都能入账。</p>
       <div class="hero-slip" aria-hidden="true">
         <span class="hero-rule"></span>
-        <span>想到　　过去的自己</span>
-        <span>合计　　注意力 × 1</span>
+        <span>想到　　那个 offer</span>
+        <span>感觉　　不服</span>
+        <span>合计　　今晚结算 × 1</span>
         <span class="hero-rule"></span>
-        <span class="hero-total">已付，无法退款</span>
+        <span class="hero-total">已付 · 无法退款</span>
       </div>
       <button type="button" class="btn primary" id="btn-start">开始打票</button>
       <button type="button" class="btn ghost" id="btn-open-drawer">本周抽屉</button>
@@ -35,7 +36,7 @@
 
       <fieldset id="who-block">
         <legend>今天你想到了谁</legend>
-        <p class="fine">前任、朋友、过去的自己，或一个突然冒出来的人。</p>
+        <p class="fine">前公司、那个 offer、过去的自己、突然冒出来的人……前任只是其中一种。</p>
         <div class="chips" id="who-chips" role="radiogroup" aria-label="想到了谁"></div>
         <label class="field">
           <span>写一下是谁（可不填）</span>
@@ -45,8 +46,8 @@
       </fieldset>
 
       <label class="field">
-        <span>此刻的感觉（可不填。怒火和思念，都能写在同一张票上）</span>
-        <input id="feeling" type="text" maxlength="40" placeholder="怒火、思念，或两个一起" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
+        <span>此刻的感觉（可不填。想、气、不服，都能写在同一行）</span>
+        <input id="feeling" type="text" maxlength="40" placeholder="想 / 气 / 又气又想 / 不服" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
         <div class="suggest-chips" id="feeling-suggest" data-for="feeling" aria-label="常用感觉"></div>
         <div class="pinyin-box" id="feeling-pinyin" hidden>
           <p class="pinyin-tip">拼音候选（离线）· 点一下填入</p>
@@ -62,10 +63,10 @@
 
       <fieldset class="optional-bite" id="compare-optional">
         <legend>再写一口比较 <span class="opt-tag">可不填 · 空着也能打票</span></legend>
-        <p class="opt-lede">填完「想到了谁」之后，可以写在这里。</p>
+        <p class="opt-lede">填完「想到了谁」之后，想比就比一口；空着照样出票。</p>
         <label class="field">
           <span>比什么 / 对方有什么（可不填）</span>
-          <input id="they-have" type="text" maxlength="40" placeholder="房子 / 签证 / 看起来很确定的人生 / 或不写" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
+          <input id="they-have" type="text" maxlength="40" placeholder="那个 offer / 头衔 / 胆子 / 钱 / 或不写" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
           <div class="suggest-chips" id="they-have-suggest" data-for="they-have" aria-label="比较一口常用词"></div>
         </label>
       </fieldset>
@@ -256,7 +257,7 @@
 
   <div id="share-sheet" class="share-sheet" hidden>
     <p class="share-sheet-title">今晚的账单</p>
-    <p class="share-sheet-copy">想到的人和感觉打成 ████。没有排行榜。默认不分享。</p>
+    <p class="share-sheet-copy">默认空票脸：名字与感觉打成 ████，只留一句金句。没有排行榜。默认不分享。</p>
     <button type="button" class="btn primary" id="btn-share-native">分享</button>
     <button type="button" class="btn ghost" id="btn-share-copy">复制文案</button>
     <button type="button" class="btn ghost" id="btn-share-download">下载图片</button>

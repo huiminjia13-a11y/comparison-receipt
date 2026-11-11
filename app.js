@@ -5,74 +5,73 @@
   /* 想到了谁：前任只是其中一种，不是主题 */
   var WHO = [
     { id: "past", label: "过去的自己" },
+    { id: "offer", label: "那个 offer" },
+    { id: "exco", label: "前公司" },
+    { id: "classmate", label: "同学" },
     { id: "friend", label: "朋友" },
-    { id: "classmate", label: "同学 / 同事" },
     { id: "ex", label: "前任" },
     { id: "sudden", label: "突然冒出来的人" },
-    { id: "anon", label: "不想说是谁（匿名）" }
+    { id: "anon", label: "不想说是谁" }
   ];
   var DURATIONS = [
-    { id: "seconds", label: "刚想到的那几秒" },
-    { id: "tonight", label: "今晚反复想起" },
+    { id: "seconds", label: "刚闪过几秒" },
+    { id: "tonight", label: "今晚反复" },
     { id: "days", label: "已经好几天" }
   ];
 
-  /* 常用词 / 拼一句：离线点选；气与想都可以 */
+  /* 常用词 / 拼一句：离线点选；野心 + 夜里打转，不是鸡汤 */
   var FEELING_WORDS = [
-    "怒火", "思念", "想", "气", "酸", "空", "来不及", "说不清", "憋", "慌", "闷", "烦",
-    "惦记", "委屈", "麻", "累", "不服", "空落落", "发紧", "酸胀"
+    "想", "气", "惦记", "不服", "空", "来不及",
+    "怒火", "思念", "酸", "憋", "慌", "烦",
+    "麻", "累", "眼红", "上头", "咬牙", "说不清"
   ];
   var FEELING_PHRASES = [
-    "怒火和思念", "心里一紧", "说不上来", "又气又想", "又酸又空", "突然很累", "没人可比"
+    "又气又想", "想赢", "不服气", "还在想", "空得很",
+    "来不及了", "比较上头", "夜里又冒出来", "羡慕到牙痒"
   ];
   var WHO_NAME_WORDS = [
-    "他", "她", "朋友", "以前的自己", "突然想到的人", "同事", "旧人"
+    "他", "她", "前公司", "那个 offer", "以前的自己", "突然想到的人", "同学", "旧人"
   ];
   var THEY_HAVE_WORDS = [
-    "房子", "签证", "工作", "看起来很确定的人生", "钱", "胆子", "自由"
+    "那个 offer", "头衔", "看起来很确定的人生", "胆子", "钱", "房子", "签证", "节奏", "人脉"
   ];
+  var STAMPS = ["已付无法退款", "今晚结算", "还在想", "不服"];
 
-  /* 轻量拼音→感觉词（静态、无网络）；气 / 想 / 酸 都覆盖 */
+  /* 轻量拼音→感觉词（静态、无网络）；气 / 想 / 不服 都覆盖 */
   var PINYIN_FEELING = {
-    xiang: ["想", "思念"],
+    xiang: ["想", "思念", "想赢"],
+    xiangying: ["想赢"],
     qi: ["气", "怒火"],
     nu: ["怒火", "气"],
     nuhuo: ["怒火"],
     sinian: ["思念"],
-    nuhuohesinian: ["怒火和思念"],
     dianji: ["惦记"],
-    suan: ["酸", "酸胀"],
-    kong: ["空", "空落落"],
-    kongluoluo: ["空落落"],
-    laibuji: ["来不及"],
+    suan: ["酸"],
+    kong: ["空", "空得很"],
+    kongdehen: ["空得很"],
+    laibuji: ["来不及", "来不及了"],
+    laibujile: ["来不及了"],
     shuo: ["说不清"],
     shuoqingchu: ["说不清"],
     buqingchu: ["说不清"],
     bie: ["憋"],
     huang: ["慌"],
-    men: ["闷"],
     fan: ["烦"],
-    xianmu: ["羡慕"],
-    weiqu: ["委屈"],
+    xianmu: ["羡慕到牙痒"],
+    yanmu: ["眼红"],
+    yanhong: ["眼红"],
     ma: ["麻"],
     lei: ["累"],
-    bufu: ["不服"],
-    fajin: ["发紧"],
-    suanzhang: ["酸胀"],
-    xinli: ["心里一紧"],
-    xinliyijin: ["心里一紧"],
-    youdian: ["有点不服"],
-    youdianbufu: ["有点不服"],
-    tufan: ["突然很累"],
-    turanhenlei: ["突然很累"],
-    suankong: ["又酸又空"],
-    yousuanyouk: ["又酸又空"],
-    yousuanyoukong: ["又酸又空"],
+    bufu: ["不服", "不服气"],
+    bufuqi: ["不服气"],
+    shangtou: ["上头", "比较上头"],
+    bijiao: ["比较上头"],
+    yaoya: ["咬牙"],
     youqiyouxiang: ["又气又想"],
     qixiang: ["又气又想"],
-    meirenkeibi: ["没人可比"],
-    meiren: ["没人可比"],
-    shuobushanglai: ["说不上来"]
+    haizaixiang: ["还在想"],
+    yeli: ["夜里又冒出来"],
+    yelimao: ["夜里又冒出来"]
   };
 
   var app = document.getElementById("app");
@@ -99,8 +98,8 @@
   var shareStatus = document.getElementById("share-status");
   var shareBtn = document.getElementById("btn-share-ticket");
   var shareKind = "ticket";
-  var SHARE_TEXT_TICKET = "今晚的账单。想到 ████  感觉 ████";
-  var SHARE_TEXT_TEAR = "今晚撕了一张。想到 ████  感觉 ████";
+  var SHARE_TEXT_TICKET = "今晚的账单。空票脸 · 已付无法退款";
+  var SHARE_TEXT_TEAR = "今晚撕了一张。空票脸 · 已付无法退款";
   var PET_NAME_KEY = "tonight-comparison-receipt-pet-name";
 
   var state = {
@@ -606,7 +605,17 @@
     return '<div class="row"><span class="k">' + k + "</span><span>" + escapeHtml(v) + "</span></div>";
   }
 
+  function pickStamp(ticket) {
+    var feel = String((ticket && ticket.feeling) || "");
+    if (/不服/.test(feel)) return "不服";
+    if (/想|惦记|思念|还在想/.test(feel)) return "还在想";
+    if (/气|怒|上头|咬牙|眼红/.test(feel)) return "今晚结算";
+    var pool = STAMPS;
+    return pool[((ticket && ticket.no) || 0) % pool.length];
+  }
+
   function receiptHtml(ticket) {
+    var stamp = pickStamp(ticket);
     return (
       '<div class="receipt-head">今晚的比较小票</div>' +
       '<div class="receipt-sub">今天想到了谁 · 热敏存根</div>' +
@@ -617,11 +626,11 @@
       receiptRow("停留", ticket.durationLabel) +
       receiptRow("比一口", ticket.theyHave) +
       '<div class="dash"></div>' +
-      '<div class="verdict">这不是判决。<br>你没有少活。<br><strong>你只是付了一笔注意力。</strong></div>' +
+      '<div class="verdict">比较不是病。<br>是燃料。<br><strong>今晚结算 · 已付无法退款。</strong></div>' +
       '<div class="dash"></div>' +
-      '<div class="receipt-no"><span>No. ' + padNo(ticket.no) + "</span><span>合计 注意力 × 1</span></div>" +
-      '<div class="stamp-slot"><div class="stamp">已出票</div></div>' +
-      '<div class="receipt-foot">本机构不提供运势、人格与建议。<br>不是心理咨询、不算命、不保证心情变好。</div>'
+      '<div class="receipt-no"><span>No. ' + padNo(ticket.no) + "</span><span>合计 今晚 × 1</span></div>" +
+      '<div class="stamp-slot"><div class="stamp">' + escapeHtml(stamp) + "</div></div>" +
+      '<div class="receipt-foot">本机存根 · 默认不分享。<br>不是心理咨询、不算命、不保证心情变好。</div>'
     );
   }
 
@@ -843,7 +852,7 @@
     Sound.stopPrint();
     if (kind === "archive") {
       afterTitle.textContent = "已归档";
-      afterCopy.textContent = "进了抽屉。";
+      afterCopy.textContent = "进抽屉了。今晚结过一次。";
       pet.dataset.pose = "back";
       pet.dataset.mood = "proud";
       pet.classList.remove("is-gone");
@@ -854,7 +863,7 @@
       shareKind = "ticket";
     } else {
       afterTitle.textContent = "已撕掉";
-      afterCopy.textContent = "不留底。";
+      afterCopy.textContent = "撕了。不留底。";
       petMood("gone");
       if (shareBtn) {
         shareBtn.hidden = false;
@@ -925,13 +934,13 @@
       '<div class="row"><span class="k">最常时段</span><span>' + escapeHtml(slot) + "</span></div>" +
       '<div class="row"><span class="k">最常感觉</span><span>' + escapeHtml(feel) + "</span></div>" +
       '<div class="dash"></div>' +
-      '<div class="settle-foot">撕掉的不留底。本机构不评价。</div>';
+      '<div class="settle-foot">撕掉的不留底。本机不评价、不排名。</div>';
 
     drawerList.innerHTML = "";
     if (!tickets.length) {
       var empty = document.createElement("li");
       empty.className = "drawer-empty";
-      empty.textContent = "本周还没有归档的票。想到谁就打一张。比较可以空着。";
+      empty.textContent = "本周还空着。想到谁就打一张。比较可以空着。";
       drawerList.appendChild(empty);
       return;
     }
@@ -1253,7 +1262,7 @@
     ctx.fillText(kind === "tear" ? "今晚撕了一张" : "今晚的账单", w / 2, y + 80);
     ctx.fillStyle = "#4a453c";
     ctx.font = "22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
-    ctx.fillText("今天想到了谁 · 热敏存根", w / 2, y + 120);
+    ctx.fillText("空票脸 · 热敏存根", w / 2, y + 120);
 
     function dash(yy) {
       ctx.strokeStyle = "#cfc6b4";
@@ -1266,39 +1275,39 @@
     }
     dash(y + 150);
 
+    /* 默认空票脸：人名 / 感觉打码，不带出本机真票 */
     ctx.textAlign = "left";
     ctx.font = "26px ui-monospace, Menlo, monospace";
     ctx.fillStyle = "#4a453c";
-    ctx.fillText("时间", x + 56, y + 210);
+    ctx.fillText("时间", x + 56, y + 220);
     ctx.fillStyle = "#1c1a16";
-    ctx.fillText("今晚", x + 160, y + 210);
+    ctx.fillText("今晚", x + 160, y + 220);
     ctx.fillStyle = "#4a453c";
-    ctx.fillText("项目", x + 56, y + 260);
+    ctx.fillText("想到", x + 56, y + 290);
     ctx.fillStyle = "#1c1a16";
-    ctx.fillText("注意力 × 1", x + 160, y + 260);
+    ctx.fillText("████", x + 160, y + 290);
     ctx.fillStyle = "#4a453c";
-    ctx.fillText("想到", x + 56, y + 310);
-    ctx.fillStyle = "#1c1a16";
-    ctx.fillText("████", x + 160, y + 310);
-    ctx.fillStyle = "#4a453c";
-    ctx.fillText("感受", x + 56, y + 360);
+    ctx.fillText("感觉", x + 56, y + 360);
     ctx.fillStyle = "#1c1a16";
     ctx.fillText("████", x + 160, y + 360);
-
-    dash(y + 400);
-    ctx.textAlign = "center";
-    ctx.font = "26px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillStyle = "#4a453c";
+    ctx.fillText("比一口", x + 56, y + 430);
     ctx.fillStyle = "#1c1a16";
-    ctx.fillText("这不是判决。", w / 2, y + 460);
-    ctx.fillText("你没有少活。", w / 2, y + 500);
-    ctx.font = "700 28px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
-    ctx.fillText("你只是付了一笔注意力。", w / 2, y + 550);
-    dash(y + 590);
+    ctx.fillText("████", x + 180, y + 430);
 
+    dash(y + 480);
+
+    /* 唯一金句：可截图传播，不暴露本机内容 */
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#c9a227";
+    ctx.font = "700 34px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillText("已付 · 无法退款", w / 2, y + 560);
+
+    dash(y + 610);
     ctx.font = "22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
     ctx.fillStyle = "#4a453c";
-    ctx.fillText("合计 已付 · 无法退款", w / 2, y + 640);
-    ctx.fillText("本机构不提供运势、人格与建议。", w / 2, y + 780);
+    ctx.fillText("合计 今晚结算 × 1", w / 2, y + 660);
+    ctx.fillText("默认不分享真票。本机存根。", w / 2, y + 780);
     ctx.fillText("不是心理咨询、不算命、不保证心情变好。", w / 2, y + 816);
 
     ctx.save();
@@ -1310,15 +1319,15 @@
     ctx.beginPath();
     ctx.arc(0, 0, 64, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.font = "700 26px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.font = "700 22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("已付清", 0, 0);
+    ctx.fillText("不服", 0, 0);
     ctx.restore();
 
-    ctx.fillStyle = "rgba(232, 195, 122, 0.55)";
+    ctx.fillStyle = "rgba(232, 195, 122, 0.7)";
     ctx.font = "16px PingFang SC, sans-serif";
-    ctx.fillText((kind === "tear" ? "今晚撕了一张" : "今晚的账单") + "  ·  想到 ████  感觉 ████", w / 2, h - 64);
+    ctx.fillText((kind === "tear" ? "今晚撕了一张" : "今晚的账单") + "  ·  空票脸 · 已付无法退款", w / 2, h - 64);
     return canvas;
   }
 

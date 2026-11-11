@@ -169,6 +169,8 @@ h1 {
 
 .hero-total {
   font-weight: 700;
+  color: #8a6a12;
+  letter-spacing: 0.06em;
 }
 
 .btn {
@@ -613,24 +615,28 @@ input[type="text"]:focus {
 
 .stamp-slot {
   position: relative;
-  height: 74px;
+  height: 86px;
   margin-top: 4px;
 }
 
 .stamp {
   position: absolute;
-  right: 4px;
+  right: 0;
   top: 2px;
-  width: 68px;
-  height: 68px;
+  width: 78px;
+  height: 78px;
   border: 2px solid var(--stamp);
   border-radius: 50%;
   color: var(--stamp);
   display: grid;
   place-items: center;
-  font-size: 13px;
+  box-sizing: border-box;
+  padding: 10px 8px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-align: center;
   transform: rotate(-18deg);
   opacity: 0;
   mix-blend-mode: multiply;
