@@ -115,6 +115,7 @@
   var PET_NAME_KEY = "tonight-comparison-receipt-pet-name";
   /* 只在玩家明确起名或跳过时写下。旧票记录、空名字都不算已问过。 */
   var PET_ASKED_KEY = "tonight-comparison-receipt-pet-asked-v1";
+  var REVISIT_KEY = "tonight-comparison-receipt-revisit-v1";
   var NIGHT_KEY = "tonight-comparison-receipt-night-v1";
   var EMOTION_BUCKETS = ["酸", "不服", "想", "气", "空", "其他"];
   var WEEKDAY_ZH = {
@@ -650,14 +651,14 @@
         " · 打票 " +
         snap.prints +
         emoBit +
-        "（匿名实计 · 不含票面）"
+        "（仅统计次数，不含原文、名字和感觉）"
       );
     }
     var localEmo =
       snap.localPrints > 0
         ? " · 本机 " + snap.pct + "% 『" + snap.top + "』"
         : "";
-    return localBit + "广场计数暂时连不上 · 只显示本机" + localEmo + "（不含票面）";
+    return localBit + "广场计数暂时连不上 · 只显示本机" + localEmo + "（仅统计次数，不含原文、名字和感觉）";
   }
 
   function refreshPlaza() {
@@ -854,6 +855,11 @@
     return h >= 0 && h < 5;
   }
 
+  function shanghaiDateKey(date) {
+    var p = shanghaiParts(date || new Date());
+    return p.year + "-" + p.month + "-" + p.day;
+  }
+
   function weekStartKey(date) {
     var p = shanghaiParts(date);
     /* 中午 +08:00，用 UTC 日历日推周一，避免浏览器本地时区干扰。 */
@@ -891,11 +897,25 @@
 
   function objectLine(ticket) {
     var name = (ticket.whoName || "").trim();
-    var label = ticket.whoLabel;
-    if (ticket.whoId === "anon" && !name) return "匿名";
-    if (name && label) return name + " · " + label;
+    var label = (ticket.whoLabel || "").trim();
+    /* 只选分类无字时只印分类；有自由输入时优先印输入 */
     if (name) return name;
+    if (ticket.whoId === "anon" && !name) return "匿名";
     return label;
+  }
+
+  function categoryLine(ticket) {
+    var name = (ticket.whoName || "").trim();
+    var label = (ticket.whoLabel || "").trim();
+    if (!name || !label) return "";
+    return label;
+  }
+
+  function shortWho(who) {
+    var w = String(who || "").trim();
+    if (!w) return "那个人";
+    if (w.length <= 6) return w;
+    return "TA";
   }
 
   function renderChips(root, items, group) {
@@ -964,7 +984,17 @@
     placePet(name);
     if (shareSheet) shareSheet.hidden = true;
     if (name === "landing" || name === "form") petMood("idle");
-    if (name === "landing") refreshPlaza();
+    if (name === "landing") {
+      refreshPlaza();
+      maybeShowRevisit();
+    }
+    if (name !== "ticket") {
+      var softAck = document.getElementById("soft-ack");
+      if (softAck) softAck.hidden = true;
+      /* 起名卡只挂在出票屏，不挡其它屏的操作 */
+      var nameSlip = document.getElementById("name-slip");
+      if (nameSlip) nameSlip.hidden = true;
+    }
   }
 
   function selectChip(root, id) {
@@ -1088,19 +1118,91 @@
     return pool[((ticket && ticket.no) || 0) % pool.length];
   }
 
+  function pickSeeded(list, seed) {
+    if (!list || !list.length) return "";
+    var n = Math.abs(Number(seed) || 0);
+    return list[n % list.length];
+  }
+
+  /* 票面结算语：短、不诊断、随感觉变 */
   function settlementLine(ticket) {
     var tone = feelingTone(ticket && ticket.feeling);
-    if (tone === "怒火") return "火气过秤。<br>烫，但算数。<br><strong>怒火入账 · 不退。</strong>";
-    if (tone === "思念") return "惦记过秤。<br>不解释好不好。<br><strong>还在想 · 已付。</strong>";
-    if (tone === "酸") return "酸也是燃料。<br>牙痒也记一笔。<br><strong>已酸过 · 无法退款。</strong>";
-    if (tone === "不服") return "不服气，也算数。<br>不说服你。<br><strong>不服 · 今晚结算。</strong>";
-    if (tone === "空") return "空着也出票。<br>空白不是没发生。<br><strong>空账一笔 · 已付。</strong>";
-    if (tone === "想赢") return "想赢写进存根。<br>赢不赢另说。<br><strong>想赢未退 · 已付。</strong>";
-    if (tone === "想") return "又想到了。<br>记下就好。<br><strong>还在想 · 无法退款。</strong>";
-    if (tone === "气") return "气过这一下。<br>不评价你。<br><strong>今晚结算 · 已付。</strong>";
-    if (tone === "又气又想") return "气和想都在。<br>两笔一起入账。<br><strong>又气又想 · 不退。</strong>";
-    if (tone === "空票") return "比较不是病。<br>是燃料。<br><strong>今晚结算 · 已付无法退款。</strong>";
-    return "这一笔入账。<br>不排名、不诊断。<br><strong>今晚结算 · 已付无法退款。</strong>";
+    if (tone === "怒火") return "怒火入账。<br><strong>不退。</strong>";
+    if (tone === "思念") return "还在想。<br><strong>已付。</strong>";
+    if (tone === "酸") return "已酸过。<br><strong>无法退款。</strong>";
+    if (tone === "不服") return "不服。<br><strong>今晚结算。</strong>";
+    if (tone === "空") return "空账一笔。<br><strong>已付。</strong>";
+    if (tone === "想赢") return "想赢未退。<br><strong>已付。</strong>";
+    if (tone === "想") return "又想到了。<br><strong>无法退款。</strong>";
+    if (tone === "气") return "气过这一下。<br><strong>已付。</strong>";
+    if (tone === "又气又想") return "气和想都在。<br><strong>不退。</strong>";
+    if (tone === "空票") return "今晚结算。<br><strong>已付无法退款。</strong>";
+    return "这一笔入账。<br><strong>已付无法退款。</strong>";
+  }
+
+  /* 出票后轻回执：按感觉、想到的人类别、是否比较取句，有变化，不说教 */
+  function softAckLine(ticket) {
+    var tone = feelingTone(ticket && ticket.feeling);
+    var who = objectLine(ticket) || "那个人";
+    var whoShort = shortWho(who);
+    var compare = String((ticket && ticket.theyHave) || "").trim();
+    var whoId = (ticket && ticket.whoId) || "";
+    var seed = ((ticket && ticket.no) || 0) + (compare ? 3 : 0) + (whoId ? whoId.length : 0);
+    if (compare) {
+      return pickSeeded(
+        [
+          "今天你比较的不是" + whoShort + "，是" + compare + "。",
+          "比的这一口落在「" + compare + "」上。",
+          "票上多了一口：" + compare + "。"
+        ],
+        seed
+      );
+    }
+    if (tone === "怒火" || tone === "气") {
+      return pickSeeded(
+        [
+          "火气过秤了。烫，但算数。",
+          "这一下是真的。记下就行。",
+          whoId === "past" ? "跟过去的自己对上了一次。" : "冲着" + whoShort + "的那股劲，入账了。"
+        ],
+        seed
+      );
+    }
+    if (tone === "思念" || tone === "想") {
+      return pickSeeded(
+        [
+          "又想到" + whoShort + "了。记下就好。",
+          "惦记这一笔，不解释。",
+          whoId === "ex" || whoId === "sudden"
+            ? "冒出来的人，也可以入账。"
+            : "还在想" + whoShort + "。不评价。"
+        ],
+        seed
+      );
+    }
+    if (tone === "不服" || tone === "想赢" || tone === "酸") {
+      return pickSeeded(
+        [
+          "不服也可以入账。",
+          "牙痒的那一下，过秤了。",
+          "想赢写进存根。赢不赢另说。"
+        ],
+        seed
+      );
+    }
+    if (tone === "又气又想") {
+      return "气和想都在。两笔一起入账。";
+    }
+    if (tone === "空" || tone === "空票") {
+      return pickSeeded(
+        ["空着也出票。空白不是没发生。", "没写感觉，也算今晚一笔。", "先打一张。解释可以以后再说。"],
+        seed
+      );
+    }
+    return pickSeeded(
+      ["这一笔入账。不排名。", "看见了。不诊断。", "票打出来了。其余的不必现在说。"],
+      seed
+    );
   }
 
   function petReactToFeeling(feeling) {
@@ -1215,6 +1317,7 @@
       '<div class="row"><span class="k">日期</span><span>' + escapeHtml(ticket.date) + "</span></div>" +
       '<div class="row"><span class="k">时间</span><span>' + escapeHtml(ticket.clock) + "</span></div>" +
       '<div class="row"><span class="k">想到</span><span>' + escapeHtml(objectLine(ticket)) + "</span></div>" +
+      receiptRow("这更像", categoryLine(ticket)) +
       nth +
       receiptRow("感觉", ticket.feeling) +
       receiptRow("停留", ticket.durationLabel) +
@@ -1298,6 +1401,11 @@
     printStatus.textContent = "出票中";
     ticketActions.hidden = true;
     if (tonightChip) tonightChip.hidden = true;
+    var softAck = document.getElementById("soft-ack");
+    if (softAck) {
+      softAck.hidden = true;
+      softAck.textContent = "";
+    }
     show("ticket");
 
     if (reducedMotion()) {
@@ -1333,9 +1441,109 @@
       printStatus.textContent = "请取票";
       ticketActions.hidden = false;
       state.canAct = true;
+      var softAck = document.getElementById("soft-ack");
+      if (softAck && state.ticket) {
+        softAck.textContent = softAckLine(state.ticket);
+        softAck.hidden = false;
+      }
       refreshPlaza();
       maybeAskPetName();
     }, reduce ? 120 : 260);
+  }
+
+  function rememberArchivedForRevisit(ticket) {
+    if (!ticket) return;
+    try {
+      localStorage.setItem(
+        REVISIT_KEY,
+        JSON.stringify({
+          no: ticket.no,
+          who: objectLine(ticket),
+          feeling: ticket.feeling || "",
+          theyHave: ticket.theyHave || "",
+          stamp: ticket.stamp || "",
+          archivedDay: shanghaiDateKey(new Date()),
+          answered: false
+        })
+      );
+    } catch (e) { /* ignore */ }
+  }
+
+  function loadRevisit() {
+    try {
+      var raw = localStorage.getItem(REVISIT_KEY);
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      return data && typeof data === "object" ? data : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveRevisit(data) {
+    try {
+      localStorage.setItem(REVISIT_KEY, JSON.stringify(data));
+    } catch (e) { /* ignore */ }
+  }
+
+  function revisitBriefText(data) {
+    var bits = [];
+    if (data.who) bits.push(data.who);
+    if (data.feeling) bits.push(data.feeling);
+    if (data.theyHave) bits.push("比一口 · " + data.theyHave);
+    if (!bits.length && data.stamp) bits.push(data.stamp);
+    return bits.join(" · ") || "昨晚有一张归档票";
+  }
+
+  function maybeShowRevisit() {
+    var card = document.getElementById("revisit-card");
+    var brief = document.getElementById("revisit-brief");
+    var ack = document.getElementById("revisit-ack");
+    if (!card) return;
+    var data = loadRevisit();
+    if (!data || data.answered) {
+      card.hidden = true;
+      return;
+    }
+    var today = shanghaiDateKey(new Date());
+    if (!data.archivedDay || data.archivedDay >= today) {
+      card.hidden = true;
+      return;
+    }
+    if (brief) brief.textContent = revisitBriefText(data);
+    if (ack) {
+      ack.hidden = true;
+      ack.textContent = "";
+    }
+    card.querySelectorAll(".revisit-btn").forEach(function (btn) {
+      btn.disabled = false;
+    });
+    card.hidden = false;
+  }
+
+  function answerRevisit(choice) {
+    var data = loadRevisit();
+    if (!data || data.answered) return;
+    data.answered = true;
+    data.answer = choice;
+    data.answeredDay = shanghaiDateKey(new Date());
+    saveRevisit(data);
+    var ack = document.getElementById("revisit-ack");
+    var map = {
+      holds: "还成立。先记着。",
+      faded: "淡了。也算一种变化。",
+      gone: "已经过去。票还在抽屉里。"
+    };
+    if (ack) {
+      ack.textContent = map[choice] || "记下了。";
+      ack.hidden = false;
+    }
+    var card = document.getElementById("revisit-card");
+    if (card) {
+      card.querySelectorAll(".revisit-btn").forEach(function (btn) {
+        btn.disabled = true;
+      });
+    }
   }
 
   function archiveTicket() {
@@ -1355,9 +1563,12 @@
       hour: parseInt(state.ticket.clock, 10)
     });
     saveStore(store);
+    rememberArchivedForRevisit(state.ticket);
 
     ticketActions.hidden = true;
     printStatus.textContent = "";
+    var softAck = document.getElementById("soft-ack");
+    if (softAck) softAck.hidden = true;
     petMood("pride");
     Sound.purr(0);
     if (reducedMotion()) {
@@ -1431,10 +1642,13 @@
     state.canAct = false;
     ticketActions.hidden = true;
     printStatus.textContent = "";
+    var softAck = document.getElementById("soft-ack");
+    if (softAck) softAck.hidden = true;
     var store = loadStore();
     store.torn = store.torn || [];
     store.torn.push({ weekKey: state.ticket.weekKey, at: state.ticket.createdAt });
     saveStore(store);
+    /* 撕掉不进入次日回看 */
     petMood("flee");
     Sound.paws(0);
     Sound.unlock();
@@ -1489,6 +1703,7 @@
   function goAfter(kind) {
     clearTimers();
     Sound.stopPrint();
+    var invite = document.getElementById("after-invite");
     if (kind === "archive") {
       afterTitle.textContent = "已归档";
       afterCopy.textContent = "进抽屉了。今晚结过一次。";
@@ -1502,7 +1717,7 @@
       shareKind = "ticket";
     } else {
       afterTitle.textContent = "已撕掉";
-      afterCopy.textContent = "撕了。不留底。";
+      afterCopy.textContent = "这张票不再留档，但你已经看见它了。";
       petMood("gone");
       if (shareBtn) {
         shareBtn.hidden = false;
@@ -1510,6 +1725,7 @@
       }
       shareKind = "tear";
     }
+    if (invite) invite.hidden = false;
     show("after");
   }
 
@@ -1664,7 +1880,11 @@
     var btn = e.target.closest(".chip");
     if (!btn) return;
     var root = btn.parentElement;
-    if (btn.dataset.group === "duration" && btn.getAttribute("aria-checked") === "true") {
+    /* 分类 / 停留都可点掉：自由输入也能单独出票 */
+    if (
+      (btn.dataset.group === "duration" || btn.dataset.group === "who") &&
+      btn.getAttribute("aria-checked") === "true"
+    ) {
       btn.setAttribute("aria-checked", "false");
       syncPrintEnabled();
       return;
@@ -1694,6 +1914,14 @@
   btnPrint.addEventListener("click", startPrint);
   document.getElementById("btn-archive").addEventListener("click", archiveTicket);
   document.getElementById("btn-tear").addEventListener("click", tearTicket);
+  document.getElementById("btn-after-home").addEventListener("click", function () {
+    show("landing");
+  });
+  document.querySelectorAll(".revisit-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      answerRevisit(btn.getAttribute("data-revisit"));
+    });
+  });
   document.getElementById("btn-again").addEventListener("click", function () {
     resetForm();
     show("form");
@@ -2433,6 +2661,7 @@
     state.tonightIndex = 0;
   }
   refreshPlaza();
+  maybeShowRevisit();
   ensureEmoKeys();
   bumpRemoteOpen();
 })();
