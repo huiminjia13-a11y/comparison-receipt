@@ -27,22 +27,24 @@
     <header class="mast">夜间小票受理处</header>
 
     <section class="screen" data-screen="landing" aria-labelledby="landing-title">
-      <p class="kicker">不是测试 · 不算命 · 不疗愈</p>
       <h1 id="landing-title">今晚的比较小票</h1>
-      <p class="lede">想到谁，就打一张热敏小票。盖章。归档，或撕掉。比较可空。不服、惦记、想赢，都能入账。</p>
-      <div class="hero-slip" aria-hidden="true">
-        <span class="hero-rule"></span>
-        <span>想到　　那个 offer</span>
-        <span>感觉　　不服</span>
-        <span>合计　　今晚结算 × 1</span>
-        <span class="hero-rule"></span>
-        <span class="hero-total">已付 · 无法退款</span>
+      <p class="lede">今天你想到了谁？你不需要放下，先打一张票。</p>
+      <button type="button" class="btn primary" id="btn-start">打一张不需要解释的票</button>
+      <p class="trust">无账号 · 默认本机保存 · 不上传票面原文 · 比较可以空着</p>
+      <div id="revisit-card" class="revisit-card" hidden>
+        <p class="revisit-kicker">昨晚最后一张归档</p>
+        <p class="revisit-brief" id="revisit-brief"></p>
+        <p class="revisit-ask">现在还成立吗？</p>
+        <div class="revisit-actions" role="group" aria-label="现在还成立吗">
+          <button type="button" class="btn ghost revisit-btn" data-revisit="holds">还成立</button>
+          <button type="button" class="btn ghost revisit-btn" data-revisit="faded">淡了</button>
+          <button type="button" class="btn ghost revisit-btn" data-revisit="gone">已经过去</button>
+        </div>
+        <p class="fine" id="revisit-ack" hidden></p>
       </div>
-      <button type="button" class="btn primary" id="btn-start">开始打票</button>
       <button type="button" class="btn ghost" id="btn-open-drawer">本周抽屉</button>
       <p class="plaza" id="plaza-line" aria-live="polite">本机今晚还没打 · 正在连广场计数…</p>
-      <p class="fine">只存在这台设备上。没有账号。默认不分享。票面从不上传。</p>
-      <p class="fine">广场只记匿名次数（打开 / 打票 / 粗情绪桶），不含名字与感觉原文。</p>
+      <p class="fine plaza-note">仅统计次数，不含原文、名字和感觉。</p>
       <p class="disclaimer">不是心理咨询、不算命、不保证心情变好。</p>
     </section>
 
@@ -51,14 +53,15 @@
 
       <fieldset id="who-block">
         <legend>今天你想到了谁</legend>
-        <p class="fine">前公司、那个 offer、过去的自己、突然冒出来的人……前任只是其中一种。</p>
-        <div class="chips" id="who-chips" role="radiogroup" aria-label="想到了谁"></div>
-        <p class="thought-n-hint" id="thought-n-hint" hidden></p>
         <label class="field">
-          <span>写一下是谁（可不填）</span>
+          <span>我想到 <em class="opt-tag">自由输入 · 可不填</em></span>
           <input id="who-name" type="text" maxlength="20" placeholder="名字、称呼，或不写" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
           <div class="suggest-chips" id="who-name-suggest" data-for="who-name" aria-label="常用称呼"></div>
         </label>
+        <p class="field-split-label">这更像 <em class="opt-tag">分类 · 可不选</em></p>
+        <div class="chips" id="who-chips" role="radiogroup" aria-label="这更像"></div>
+        <p class="thought-n-hint" id="thought-n-hint" hidden></p>
+        <p class="fine">前公司、那个 offer、过去的自己、突然冒出来的人……前任只是其中一种。只选分类时，票上只印分类。</p>
       </fieldset>
 
       <label class="field">
@@ -88,7 +91,7 @@
       </fieldset>
 
       <button type="button" class="btn primary" id="btn-print" aria-disabled="false">打印</button>
-      <p class="print-hint" id="print-hint" hidden>先选一个，或写下一个称呼</p>
+      <p class="print-hint" id="print-hint" hidden>写一下「我想到」，或选一个「这更像」</p>
       <button type="button" class="btn ghost" id="btn-form-back">返回</button>
       <p class="disclaimer">不打分。不解释你是哪种人。</p>
     </section>
@@ -108,6 +111,15 @@
         </div>
       </div>
       <p class="tonight-chip" id="tonight-chip" hidden></p>
+      <p class="soft-ack" id="soft-ack" hidden aria-live="polite"></p>
+      <div id="name-slip" class="name-slip" hidden>
+        <p>第一次见到这只橘猫。要起个名字吗。</p>
+        <input id="pet-name-input" type="text" maxlength="8" placeholder="可不填" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false">
+        <div class="name-slip-actions">
+          <button type="button" class="btn primary" id="btn-name-ok">就叫这个</button>
+          <button type="button" class="btn ghost" id="btn-name-skip">跳过</button>
+        </div>
+      </div>
       <div class="actions" id="ticket-actions" hidden>
         <button type="button" class="btn primary" id="btn-export-card">一键晒图</button>
         <button type="button" class="btn ghost" id="btn-archive">归档</button>
@@ -118,7 +130,9 @@
     <section class="screen" data-screen="after" aria-labelledby="after-title">
       <h1 id="after-title" class="screen-title"></h1>
       <p class="lede" id="after-copy"></p>
+      <p class="after-invite" id="after-invite" hidden>还想到别的吗？可以再打一张，不勉强。</p>
       <button type="button" class="btn primary" id="btn-again">再打一张</button>
+      <button type="button" class="btn ghost" id="btn-after-home">先这样</button>
       <button type="button" class="btn ghost" id="btn-after-drawer">看本周抽屉</button>
       <button type="button" class="btn ghost" id="btn-share-ticket" hidden>分享今晚的账单</button>
     </section>
@@ -138,23 +152,23 @@
   <aside id="pet" class="pet" data-mood="idle" data-pose="loaf" aria-hidden="true">
     <svg viewBox="0 0 176 112" class="pet-svg" role="img">
       <defs>
-        <linearGradient id="lihua-fur" x1="8%" y1="10%" x2="90%" y2="95%">
+        <linearGradient id="orange-fur" x1="8%" y1="10%" x2="90%" y2="95%">
           <stop offset="0%" stop-color="#f6b045"/>
           <stop offset="40%" stop-color="#e87820"/>
           <stop offset="78%" stop-color="#c45a12"/>
           <stop offset="100%" stop-color="#8a3a0c"/>
         </linearGradient>
-        <linearGradient id="lihua-fur-dark" x1="20%" y1="0%" x2="80%" y2="100%">
+        <linearGradient id="orange-fur-dark" x1="20%" y1="0%" x2="80%" y2="100%">
           <stop offset="0%" stop-color="#f0a030"/>
           <stop offset="55%" stop-color="#d46818"/>
           <stop offset="100%" stop-color="#9a4010"/>
         </linearGradient>
-        <radialGradient id="lihua-eye" cx="38%" cy="35%" r="65%">
+        <radialGradient id="orange-eye" cx="38%" cy="35%" r="65%">
           <stop offset="0%" stop-color="#ffe08a"/>
           <stop offset="45%" stop-color="#e8a020"/>
           <stop offset="100%" stop-color="#8a4e0e"/>
         </radialGradient>
-        <linearGradient id="lihua-chest" x1="0%" y1="0%" x2="0%" y2="100%">
+        <linearGradient id="orange-chest" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stop-color="#fff6ea"/>
           <stop offset="100%" stop-color="#f0e0cc"/>
         </linearGradient>
@@ -176,7 +190,7 @@
             C128 60 138 68 140 78
             C142 88 132 94 118 96
             C96 99 68 99 52 94
-            C44 91 40 86 42 78 Z" fill="url(#lihua-fur)"/>
+            C44 91 40 86 42 78 Z" fill="url(#orange-fur)"/>
           <path d="M58 60 C74 56 100 55 122 62 C118 70 96 72 72 70 C62 68 56 64 58 60 Z" fill="#ffc060" opacity="0.28"/>
           <!-- 后臀阴影 -->
           <ellipse cx="54" cy="82" rx="16" ry="12" fill="#8a3a0c" opacity="0.22"/>
@@ -194,13 +208,13 @@
           <path d="M102 70 q3 8 0 12" stroke-width="1.8"/>
         </g>
         <!-- 白胸口 + 爪尖 -->
-        <ellipse cx="118" cy="88" rx="16" ry="10" fill="url(#lihua-chest)"/>
+        <ellipse cx="118" cy="88" rx="16" ry="10" fill="url(#orange-chest)"/>
         <ellipse cx="128" cy="93" rx="9" ry="5" fill="#fff4e6"/>
         <ellipse cx="70" cy="94" rx="8" ry="4.5" fill="#fff4e6"/>
         <ellipse cx="52" cy="90" rx="7" ry="4" fill="#fff4e6" opacity="0.9"/>
         <!-- 头 -->
         <g class="pet-head-group">
-          <ellipse cx="132" cy="46" rx="22" ry="19.5" fill="url(#lihua-fur-dark)"/>
+          <ellipse cx="132" cy="46" rx="22" ry="19.5" fill="url(#orange-fur-dark)"/>
           <!-- 颊毛阴影 -->
           <ellipse cx="118" cy="54" rx="7" ry="9" fill="#8a3a0c" opacity="0.18"/>
           <ellipse cx="146" cy="53" rx="6" ry="8" fill="#8a3a0c" opacity="0.16"/>
@@ -222,12 +236,12 @@
           </g>
           <!-- 琥珀 / 铜眼：警惕细长 -->
           <g class="pet-eye pet-eye-l">
-            <ellipse cx="124" cy="48" rx="5" ry="5.4" fill="url(#lihua-eye)"/>
+            <ellipse cx="124" cy="48" rx="5" ry="5.4" fill="url(#orange-eye)"/>
             <ellipse cx="124.7" cy="48.3" rx="1.7" ry="3.6" fill="#140e0a"/>
             <circle cx="122.6" cy="46.4" r="1" fill="#fff0c0" opacity="0.65"/>
           </g>
           <g class="pet-eye pet-eye-r">
-            <ellipse cx="142" cy="47" rx="5" ry="5.4" fill="url(#lihua-eye)"/>
+            <ellipse cx="142" cy="47" rx="5" ry="5.4" fill="url(#orange-eye)"/>
             <ellipse cx="142.7" cy="47.3" rx="1.7" ry="3.6" fill="#140e0a"/>
             <circle cx="140.6" cy="45.4" r="1" fill="#fff0c0" opacity="0.65"/>
           </g>
@@ -247,7 +261,7 @@
         </g>
       </g>
       <g class="pose-back">
-        <ellipse cx="90" cy="68" rx="29" ry="31" fill="url(#lihua-fur)"/>
+        <ellipse cx="90" cy="68" rx="29" ry="31" fill="url(#orange-fur)"/>
         <g fill="none" stroke="#4a1c08" stroke-width="3.4" stroke-linecap="round">
           <path d="M76 50 q0 22 0 36"/>
           <path d="M90 48 q0 24 0 40"/>
@@ -255,8 +269,8 @@
           <path d="M82 58 q0 14 0 20" stroke-width="2"/>
           <path d="M98 58 q0 14 0 20" stroke-width="2"/>
         </g>
-        <ellipse cx="90" cy="94" rx="17" ry="7.5" fill="url(#lihua-chest)" opacity="0.85"/>
-        <circle cx="90" cy="34" r="17.5" fill="url(#lihua-fur-dark)"/>
+        <ellipse cx="90" cy="94" rx="17" ry="7.5" fill="url(#orange-chest)" opacity="0.85"/>
+        <circle cx="90" cy="34" r="17.5" fill="url(#orange-fur-dark)"/>
         <path d="M78 30 L72 10 L90 26 Z" fill="#e87820"/>
         <path d="M102 30 L110 10 L92 26 Z" fill="#e87820"/>
         <path d="M76 18 L90 28 L104 18" fill="none" stroke="#2a1006" stroke-width="2.2" stroke-linecap="round"/>
@@ -267,13 +281,6 @@
     </svg>
     <span class="pet-name" id="pet-name-tag"></span>
   </aside>
-
-  <div id="name-slip" class="name-slip" hidden>
-    <p>第一次见到这只橘猫。要给它起个名字吗。</p>
-    <input id="pet-name-input" type="text" maxlength="8" placeholder="可不填" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false">
-    <button type="button" class="btn primary" id="btn-name-ok">就叫这个</button>
-    <button type="button" class="btn ghost" id="btn-name-skip">跳过</button>
-  </div>
 
   <div id="share-sheet" class="share-sheet" hidden>
     <p class="share-sheet-title" id="share-sheet-title">晒图卡</p>
