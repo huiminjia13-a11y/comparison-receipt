@@ -4,11 +4,11 @@
 
 ## 在线打开（手机 / 电脑同一链接）
 
-GitHub Pages（`main` 根目录）：
+GitHub Pages（仓库需为 **public**，从 `main` 根目录部署）：
 
 **https://huiminjia13-a11y.github.io/comparison-receipt/**
 
-手机浏览器直接打开；电脑 / 云桌面同一地址。无账号。
+手机与电脑同一地址。推送到 `main` 后由 Actions 自动发布（见 `.github/workflows/pages.yml`）。若仓库仍是 private，先在 GitHub → Settings → General → Danger Zone 改为 Public，再开 Pages（或等 Actions 首次成功）。
 
 ## 慧敏怎么打开（本地）
 
