@@ -805,11 +805,15 @@ input[type="text"]:focus {
 }
 
 .pet-tail {
-  transform-origin: 30px 74px;
+  transform-origin: 28px 78px;
 }
 
 .pet[data-mood="idle"] .pet-tail {
   animation: tail-idle 5.2s ease-in-out infinite;
+}
+
+.pet[data-mood="idle"] .pet-eye {
+  animation: idle-blink 6.4s ease-in-out infinite;
 }
 
 .pet[data-mood="flick"] .pet-tail {
@@ -817,8 +821,8 @@ input[type="text"]:focus {
 }
 
 .pet[data-mood="watch"] .pet-head-group {
-  transform-origin: 120px 68px;
-  transform: rotate(-20deg);
+  transform-origin: 126px 70px;
+  transform: rotate(-22deg) translate(-2px, 4px);
 }
 
 .pet[data-mood="watch"] .pet-ear-l,
@@ -843,13 +847,17 @@ input[type="text"]:focus {
 }
 
 .pet[data-mood="proud"] .pet-tail-curl {
-  transform-origin: 56px 72px;
+  transform-origin: 58px 74px;
   animation: tail-curl 1.4s ease-in-out infinite;
 }
 
 .pet[data-mood="flee"] .pet-ear-l,
 .pet[data-mood="flee"] .pet-ear-r {
-  transform: rotate(-48deg);
+  transform: rotate(-52deg) translateY(4px);
+}
+
+.pet[data-mood="flee"] .pet-head-group {
+  transform: translateY(6px) rotate(6deg);
 }
 
 .pet[data-mood="flee"] {
@@ -882,9 +890,15 @@ input[type="text"]:focus {
   45% { transform: scaleY(0.08); }
 }
 
+@keyframes idle-blink {
+  0%, 88%, 100% { transform: scaleY(1); }
+  91% { transform: scaleY(0.08); }
+  94% { transform: scaleY(1); }
+}
+
 @keyframes pride-stand {
   0% { transform: translateY(0) rotate(0); }
-  22% { transform: translateY(-11px) scaleY(1.08); }
+  22% { transform: translateY(-11px) scaleY(1.06); }
   40% { transform: translateY(-9px) rotate(-14deg); }
   62% { transform: translateY(-4px) rotate(-40deg); }
   100% { transform: translateY(0) rotate(0); }
@@ -897,8 +911,9 @@ input[type="text"]:focus {
 
 @keyframes slink-away {
   0% { transform: translate(0, 0) scaleY(1); opacity: 1; }
-  18% { transform: translate(-12px, 10px) scaleY(0.7); opacity: 1; }
-  100% { transform: translate(-170px, 18px) scaleY(0.62); opacity: 0; }
+  18% { transform: translate(-14px, 14px) scaleY(0.62); opacity: 1; }
+  55% { transform: translate(-90px, 22px) scaleY(0.55); opacity: 0.7; }
+  100% { transform: translate(-180px, 28px) scaleY(0.5); opacity: 0; }
 }
 
 @keyframes pet-fade {
@@ -988,16 +1003,26 @@ input[type="text"]:focus {
   .receipt-stage.is-tearing,
   .actions,
   .pet[data-mood="idle"] .pet-tail,
+  .pet[data-mood="idle"] .pet-eye,
   .pet[data-mood="pride"],
   .pet[data-mood="flee"],
   .pet[data-mood="watch"] .pet-ear-l,
   .pet[data-mood="watch"] .pet-ear-r,
+  .pet[data-mood="proud"] .pet-tail-curl,
   .field.is-shake input {
     animation: none !important;
   }
 
   .pet[data-mood="pride"] {
     /* reduced-motion: 转圈改为甩尾，由 JS 切 pose */
+  }
+
+  .pet[data-mood="watch"] .pet-head-group {
+    transform: none;
+  }
+
+  .pet[data-mood="flick"] .pet-tail {
+    animation: none !important;
   }
 
   .receipt.is-stamped .stamp {
