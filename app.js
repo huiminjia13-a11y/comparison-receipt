@@ -97,10 +97,28 @@
   var shareSheet = document.getElementById("share-sheet");
   var shareStatus = document.getElementById("share-status");
   var shareBtn = document.getElementById("btn-share-ticket");
+  var shareSheetTitle = document.getElementById("share-sheet-title");
+  var shareSheetCopy = document.getElementById("share-sheet-copy");
+  var plazaLine = document.getElementById("plaza-line");
+  var tonightChip = document.getElementById("tonight-chip");
+  var weekBanner = document.getElementById("week-banner");
   var shareKind = "ticket";
-  var SHARE_TEXT_TICKET = "今晚的账单。空票脸 · 已付无法退款";
-  var SHARE_TEXT_TEAR = "今晚撕了一张。空票脸 · 已付无法退款";
+  var shareMode = "public";
+  var SHARE_TEXT_TICKET = "今晚的比较小票。公开安全空票脸 · 已付无法退款";
+  var SHARE_TEXT_TEAR = "今晚撕了一张。公开安全空票脸 · 已付无法退款";
+  var SHARE_TEXT_WEEK = "本周总票。账单式存根 · 已付无法退款";
   var PET_NAME_KEY = "tonight-comparison-receipt-pet-name";
+  var NIGHT_KEY = "tonight-comparison-receipt-night-v1";
+  var EMOTION_BUCKETS = ["酸", "不服", "想", "气", "空", "其他"];
+  var WEEKDAY_ZH = {
+    Mon: "周一",
+    Tue: "周二",
+    Wed: "周三",
+    Thu: "周四",
+    Fri: "周五",
+    Sat: "周六",
+    Sun: "周日"
+  };
 
   var state = {
     whoId: "",
@@ -108,7 +126,8 @@
     ticket: null,
     printTimer: null,
     timers: [],
-    canAct: false
+    canAct: false,
+    tonightIndex: 0
   };
 
   function later(fn, ms) {
@@ -411,6 +430,166 @@
     }
   }
 
+  function nightKey(date) {
+    var p = tokyoParts(date || new Date());
+    return p.year + "-" + p.month + "-" + p.day;
+  }
+
+  function hashStr(str) {
+    var h = 2166136261;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function emptyEmotions() {
+    var o = {};
+    EMOTION_BUCKETS.forEach(function (k) { o[k] = 0; });
+    return o;
+  }
+
+  function bucketFeeling(raw) {
+    var feel = String(raw || "");
+    if (/酸|眼红|羡慕/.test(feel)) return "酸";
+    if (/不服/.test(feel)) return "不服";
+    if (/想|惦记|思念|还在想/.test(feel)) return "想";
+    if (/气|怒|上头|咬牙|烦/.test(feel)) return "气";
+    if (/空|麻|累/.test(feel)) return "空";
+    if (!feel.trim()) return "其他";
+    return "其他";
+  }
+
+  function loadNight() {
+    var key = nightKey(new Date());
+    var blank = { night: key, prints: 0, emotions: emptyEmotions() };
+    try {
+      var raw = localStorage.getItem(NIGHT_KEY);
+      if (!raw) return blank;
+      var data = JSON.parse(raw);
+      if (!data || data.night !== key) return blank;
+      var emotions = emptyEmotions();
+      var src = data.emotions && typeof data.emotions === "object" ? data.emotions : {};
+      EMOTION_BUCKETS.forEach(function (k) {
+        emotions[k] = Number(src[k]) || 0;
+      });
+      return {
+        night: key,
+        prints: Number(data.prints) || 0,
+        emotions: emotions
+      };
+    } catch (e) {
+      return blank;
+    }
+  }
+
+  function saveNight(night) {
+    try {
+      localStorage.setItem(NIGHT_KEY, JSON.stringify(night));
+    } catch (e) { /* ignore */ }
+  }
+
+  /* 广场今晚：日历夜种子 + 本机贡献。诚实标注为氛围估算，不装作已核实全球实况。 */
+  function seededPlaza(key) {
+    var h = hashStr("plaza|" + key);
+    var people = 48 + (h % 173);
+    var emotions = emptyEmotions();
+    var weights = [0.22, 0.18, 0.2, 0.16, 0.1, 0.14];
+    var wobble = ((h >>> 8) % 17) - 8;
+    weights[0] = Math.max(0.12, Math.min(0.42, weights[0] + wobble / 100));
+    var rest = 1 - weights[0];
+    var sumW = weights.slice(1).reduce(function (a, b) { return a + b; }, 0);
+    for (var i = 1; i < weights.length; i++) weights[i] = (weights[i] / sumW) * rest;
+    var assigned = 0;
+    EMOTION_BUCKETS.forEach(function (k, idx) {
+      if (idx === EMOTION_BUCKETS.length - 1) {
+        emotions[k] = Math.max(0, people - assigned);
+      } else {
+        var n = Math.round(people * weights[idx]);
+        emotions[k] = n;
+        assigned += n;
+      }
+    });
+    return { people: people, emotions: emotions };
+  }
+
+  function plazaSnapshot() {
+    var local = loadNight();
+    var seed = seededPlaza(local.night);
+    var people = seed.people + local.prints;
+    var emotions = emptyEmotions();
+    EMOTION_BUCKETS.forEach(function (k) {
+      emotions[k] = (seed.emotions[k] || 0) + (local.emotions[k] || 0);
+    });
+    var top = "酸";
+    var topN = -1;
+    EMOTION_BUCKETS.forEach(function (k) {
+      if (emotions[k] > topN) {
+        topN = emotions[k];
+        top = k;
+      }
+    });
+    var pct = people > 0 ? Math.round((emotions[top] / people) * 100) : 0;
+    return {
+      night: local.night,
+      localPrints: local.prints,
+      people: people,
+      top: top,
+      pct: pct,
+      emotions: emotions
+    };
+  }
+
+  function recordTonightPrint(feeling) {
+    var night = loadNight();
+    night.prints += 1;
+    var bucket = bucketFeeling(feeling);
+    night.emotions[bucket] = (night.emotions[bucket] || 0) + 1;
+    saveNight(night);
+    state.tonightIndex = night.prints;
+    return night;
+  }
+
+  function formatPlazaLine(snap) {
+    var localBit = snap.localPrints
+      ? "本机今晚 " + snap.localPrints + " 张 · "
+      : "本机今晚还没打 · ";
+    return (
+      localBit +
+      "广场今晚约 " +
+      snap.people +
+      " 人打了票 · " +
+      snap.pct +
+      "% 选了『" +
+      snap.top +
+      "』（氛围估算 · 不含票面）"
+    );
+  }
+
+  function refreshPlaza() {
+    var snap = plazaSnapshot();
+    if (plazaLine) plazaLine.textContent = formatPlazaLine(snap);
+    if (tonightChip) {
+      if (state.tonightIndex > 0) {
+        tonightChip.hidden = false;
+        tonightChip.textContent =
+          "今晚第 " + state.tonightIndex + " 张 · 广场约 " + snap.people + " 人在";
+      } else {
+        tonightChip.hidden = true;
+      }
+    }
+  }
+
+  function isTokyoSunday(date) {
+    var p = tokyoParts(date || new Date());
+    return p.weekday === "Sun";
+  }
+
+  function weekdayZhFromParts(p) {
+    return WEEKDAY_ZH[p.weekday] || p.weekday || "—";
+  }
+
   function tokyoParts(date) {
     var parts = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Asia/Tokyo",
@@ -524,6 +703,7 @@
     app.dataset.screen = name;
     if (shareSheet) shareSheet.hidden = true;
     if (name === "landing" || name === "form") petMood("idle");
+    if (name === "landing") refreshPlaza();
   }
 
   function selectChip(root, id) {
@@ -616,10 +796,12 @@
 
   function receiptHtml(ticket) {
     var stamp = pickStamp(ticket);
+    var tonight = ticket.tonightIndex ? "今晚第 " + ticket.tonightIndex + " 张" : "合计 今晚 × 1";
     return (
       '<div class="receipt-head">今晚的比较小票</div>' +
       '<div class="receipt-sub">今天想到了谁 · 热敏存根</div>' +
       '<div class="dash"></div>' +
+      '<div class="row"><span class="k">日期</span><span>' + escapeHtml(ticket.date) + "</span></div>" +
       '<div class="row"><span class="k">时间</span><span>' + escapeHtml(ticket.clock) + "</span></div>" +
       '<div class="row"><span class="k">想到</span><span>' + escapeHtml(objectLine(ticket)) + "</span></div>" +
       receiptRow("感觉", ticket.feeling) +
@@ -628,7 +810,7 @@
       '<div class="dash"></div>' +
       '<div class="verdict">比较不是病。<br>是燃料。<br><strong>今晚结算 · 已付无法退款。</strong></div>' +
       '<div class="dash"></div>' +
-      '<div class="receipt-no"><span>No. ' + padNo(ticket.no) + "</span><span>合计 今晚 × 1</span></div>" +
+      '<div class="receipt-no"><span>No. ' + padNo(ticket.no) + "</span><span>" + escapeHtml(tonight) + "</span></div>" +
       '<div class="stamp-slot"><div class="stamp">' + escapeHtml(stamp) + "</div></div>" +
       '<div class="receipt-foot">本机存根 · 默认不分享。<br>不是心理咨询、不算命、不保证心情变好。</div>'
     );
@@ -672,6 +854,8 @@
     var ticket = buildTicket();
     store.seq = ticket.no;
     saveStore(store);
+    var night = recordTonightPrint(ticket.feeling);
+    ticket.tonightIndex = night.prints;
     state.ticket = ticket;
     state.canAct = false;
     clearTimers();
@@ -689,6 +873,7 @@
     led.classList.add("on");
     printStatus.textContent = "出票中";
     ticketActions.hidden = true;
+    if (tonightChip) tonightChip.hidden = true;
     show("ticket");
 
     if (reducedMotion()) {
@@ -725,6 +910,7 @@
       ticketActions.hidden = false;
       state.canAct = true;
       petMood("watch");
+      refreshPlaza();
     }, reduce ? 150 : 700);
   }
 
@@ -914,7 +1100,7 @@
     return best || "—";
   }
 
-  function renderDrawer() {
+  function weekSummary() {
     var tickets = thisWeekTickets();
     var torn = thisWeekTorn();
     var x = tickets.length;
@@ -923,28 +1109,83 @@
     var who = modeOf(tickets.map(function (t) { return t.who; }));
     var slot = modeOf(tickets.map(function (t) { return hourSlot(t.clock); }));
     var feel = modeOf(tickets.map(function (t) { return (t.feeling || "").trim(); }));
+    var byDay = {};
+    var acidByDay = {};
+    tickets.forEach(function (t) {
+      var day = t.date || "";
+      byDay[day] = (byDay[day] || 0) + 1;
+      if (/酸|眼红|羡慕/.test(String(t.feeling || ""))) {
+        acidByDay[day] = (acidByDay[day] || 0) + 1;
+      }
+    });
+    var peakDay = "";
+    var peakN = 0;
+    Object.keys(byDay).forEach(function (d) {
+      if (byDay[d] > peakN) {
+        peakN = byDay[d];
+        peakDay = d;
+      }
+    });
+    var acidDay = "";
+    var acidN = 0;
+    Object.keys(acidByDay).forEach(function (d) {
+      if (acidByDay[d] > acidN) {
+        acidN = acidByDay[d];
+        acidDay = d;
+      }
+    });
+    function dayLabel(iso) {
+      if (!iso) return "—";
+      var fake = new Date(iso + "T12:00:00+09:00");
+      var p = tokyoParts(fake);
+      return weekdayZhFromParts(p);
+    }
+    return {
+      tickets: tickets,
+      torn: torn,
+      archived: x,
+      tornCount: y,
+      total: n,
+      who: who,
+      slot: slot,
+      feel: feel || "—",
+      peakDayLabel: dayLabel(peakDay),
+      acidDayLabel: acidDay ? dayLabel(acidDay) : "",
+      weekKey: weekStartKey(new Date()),
+      byDay: byDay
+    };
+  }
+
+  function renderDrawer() {
+    var summary = weekSummary();
+    if (weekBanner) {
+      weekBanner.hidden = !isTokyoSunday(new Date());
+    }
     settleSlip.innerHTML =
       '<div class="settle-head">本周结算单</div>' +
       '<div class="dash"></div>' +
-      '<div class="row"><span class="k">出票</span><span>' + n + "</span></div>" +
-      '<div class="row"><span class="k">归档</span><span>' + x + "</span></div>" +
-      '<div class="row"><span class="k">撕掉</span><span>' + y + "</span></div>" +
+      '<div class="row"><span class="k">出票</span><span>' + summary.total + "</span></div>" +
+      '<div class="row"><span class="k">归档</span><span>' + summary.archived + "</span></div>" +
+      '<div class="row"><span class="k">撕掉</span><span>' + summary.tornCount + "</span></div>" +
       '<div class="dash"></div>' +
-      '<div class="row"><span class="k">最常想到</span><span>' + escapeHtml(who) + "</span></div>" +
-      '<div class="row"><span class="k">最常时段</span><span>' + escapeHtml(slot) + "</span></div>" +
-      '<div class="row"><span class="k">最常感觉</span><span>' + escapeHtml(feel) + "</span></div>" +
+      '<div class="row"><span class="k">最常想到</span><span>' + escapeHtml(summary.who) + "</span></div>" +
+      '<div class="row"><span class="k">最常时段</span><span>' + escapeHtml(summary.slot) + "</span></div>" +
+      '<div class="row"><span class="k">最常感觉</span><span>' + escapeHtml(summary.feel) + "</span></div>" +
+      (summary.acidDayLabel
+        ? '<div class="row"><span class="k">最酸的是</span><span>' + escapeHtml(summary.acidDayLabel) + "</span></div>"
+        : "") +
       '<div class="dash"></div>' +
-      '<div class="settle-foot">撕掉的不留底。本机不评价、不排名。</div>';
+      '<div class="settle-foot">撕掉的不留底。本机不评价、不排名。可导出周总票晒图。</div>';
 
     drawerList.innerHTML = "";
-    if (!tickets.length) {
+    if (!summary.tickets.length) {
       var empty = document.createElement("li");
       empty.className = "drawer-empty";
       empty.textContent = "本周还空着。想到谁就打一张。比较可以空着。";
       drawerList.appendChild(empty);
       return;
     }
-    tickets
+    summary.tickets
       .slice()
       .reverse()
       .forEach(function (t) {
@@ -1225,93 +1466,51 @@
   })();
 
   function shareCaption() {
-    return shareKind === "tear" ? SHARE_TEXT_TEAR : SHARE_TEXT_TICKET;
+    if (shareKind === "week") return SHARE_TEXT_WEEK;
+    if (shareKind === "tear") return SHARE_TEXT_TEAR;
+    return SHARE_TEXT_TICKET;
   }
 
-  function drawBillCanvas(kind) {
-    var w = 720;
-    var h = 1280;
-    var canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    var ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#14120f";
-    ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = "#2a2318";
-    ctx.beginPath();
-    ctx.ellipse(360, -40, 520, 280, 0, 0, Math.PI * 2);
-    ctx.fill();
+  function shareFileName() {
+    if (shareKind === "week") return "本周总票.png";
+    if (shareKind === "tear") return "今晚撕了一张.png";
+    return "今晚晒图卡.png";
+  }
 
-    var x = 90;
-    var y = 180;
-    var pw = 540;
-    var ph = 860;
-    ctx.fillStyle = "#f3eee0";
-    ctx.fillRect(x, y, pw, ph);
-
-    ctx.fillStyle = "#14120f";
-    for (var i = 0; i < pw / 16; i++) {
-      ctx.beginPath();
-      ctx.arc(x + 8 + i * 16, y, 8, 0, Math.PI * 2);
-      ctx.fill();
+  function syncShareModeUi() {
+    var pub = document.getElementById("share-mode-public");
+    var priv = document.getElementById("share-mode-private");
+    if (pub) {
+      pub.classList.toggle("is-on", shareMode === "public");
+      pub.setAttribute("aria-pressed", shareMode === "public" ? "true" : "false");
     }
-
-    ctx.fillStyle = "#1c1a16";
-    ctx.textAlign = "center";
-    ctx.font = "700 36px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
-    ctx.fillText(kind === "tear" ? "今晚撕了一张" : "今晚的账单", w / 2, y + 80);
-    ctx.fillStyle = "#4a453c";
-    ctx.font = "22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
-    ctx.fillText("空票脸 · 热敏存根", w / 2, y + 120);
-
-    function dash(yy) {
-      ctx.strokeStyle = "#cfc6b4";
-      ctx.setLineDash([8, 8]);
-      ctx.beginPath();
-      ctx.moveTo(x + 40, yy);
-      ctx.lineTo(x + pw - 40, yy);
-      ctx.stroke();
-      ctx.setLineDash([]);
+    if (priv) {
+      priv.classList.toggle("is-on", shareMode === "private");
+      priv.setAttribute("aria-pressed", shareMode === "private" ? "true" : "false");
     }
-    dash(y + 150);
+    if (shareSheetCopy) {
+      if (shareKind === "week") {
+        shareSheetCopy.textContent =
+          shareMode === "public"
+            ? "周总票默认打码：只晒次数、时段、最酸的一天与金句。不含想到的人。"
+            : "本机完整周总票会带上归档条目。只给你自己看，别默认发社交。";
+      } else {
+        shareSheetCopy.textContent =
+          shareMode === "public"
+            ? "公开安全：名字与感觉打成 ████，只留日期、票号、今晚第几张、章与金句。一键 PNG。"
+            : "本机完整：带上想到/感觉/比一口。只存在这台设备的选择，默认仍建议公开安全。";
+      }
+    }
+    if (shareSheetTitle) {
+      if (shareKind === "week") shareSheetTitle.textContent = "本周总票";
+      else if (shareKind === "tear") shareSheetTitle.textContent = "撕票晒图";
+      else shareSheetTitle.textContent = "一键晒图卡";
+    }
+  }
 
-    /* 默认空票脸：人名 / 感觉打码，不带出本机真票 */
-    ctx.textAlign = "left";
-    ctx.font = "26px ui-monospace, Menlo, monospace";
-    ctx.fillStyle = "#4a453c";
-    ctx.fillText("时间", x + 56, y + 220);
-    ctx.fillStyle = "#1c1a16";
-    ctx.fillText("今晚", x + 160, y + 220);
-    ctx.fillStyle = "#4a453c";
-    ctx.fillText("想到", x + 56, y + 290);
-    ctx.fillStyle = "#1c1a16";
-    ctx.fillText("████", x + 160, y + 290);
-    ctx.fillStyle = "#4a453c";
-    ctx.fillText("感觉", x + 56, y + 360);
-    ctx.fillStyle = "#1c1a16";
-    ctx.fillText("████", x + 160, y + 360);
-    ctx.fillStyle = "#4a453c";
-    ctx.fillText("比一口", x + 56, y + 430);
-    ctx.fillStyle = "#1c1a16";
-    ctx.fillText("████", x + 180, y + 430);
-
-    dash(y + 480);
-
-    /* 唯一金句：可截图传播，不暴露本机内容 */
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#c9a227";
-    ctx.font = "700 34px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
-    ctx.fillText("已付 · 无法退款", w / 2, y + 560);
-
-    dash(y + 610);
-    ctx.font = "22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
-    ctx.fillStyle = "#4a453c";
-    ctx.fillText("合计 今晚结算 × 1", w / 2, y + 660);
-    ctx.fillText("默认不分享真票。本机存根。", w / 2, y + 780);
-    ctx.fillText("不是心理咨询、不算命、不保证心情变好。", w / 2, y + 816);
-
+  function drawStamp(ctx, cx, cy, label) {
     ctx.save();
-    ctx.translate(x + pw - 110, y + 700);
+    ctx.translate(cx, cy);
     ctx.rotate(-18 * Math.PI / 180);
     ctx.strokeStyle = "#c42b22";
     ctx.fillStyle = "#c42b22";
@@ -1322,13 +1521,236 @@
     ctx.font = "700 22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("不服", 0, 0);
+    ctx.fillText(label || "不服", 0, 0);
     ctx.restore();
+  }
 
-    ctx.fillStyle = "rgba(232, 195, 122, 0.7)";
+  function drawPaperShell(ctx, w, h, x, y, pw, ph) {
+    ctx.fillStyle = "#14120f";
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#2a2318";
+    ctx.beginPath();
+    ctx.ellipse(w / 2, -40, 520, 280, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#f3eee0";
+    ctx.fillRect(x, y, pw, ph);
+
+    /* 热敏齿孔 */
+    ctx.fillStyle = "#14120f";
+    for (var i = 0; i < pw / 16; i++) {
+      ctx.beginPath();
+      ctx.arc(x + 8 + i * 16, y, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x + 8 + i * 16, y + ph, 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    /* 轻微纸纹 */
+    ctx.save();
+    ctx.globalAlpha = 0.04;
+    ctx.fillStyle = "#6a5a40";
+    for (var g = 0; g < 40; g++) {
+      ctx.fillRect(x + 12, y + 24 + g * 22, pw - 24, 1);
+    }
+    ctx.restore();
+  }
+
+  function drawDash(ctx, x, pw, yy) {
+    ctx.strokeStyle = "#cfc6b4";
+    ctx.setLineDash([8, 8]);
+    ctx.beginPath();
+    ctx.moveTo(x + 40, yy);
+    ctx.lineTo(x + pw - 40, yy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function drawRow(ctx, x, y, label, value, paperRight) {
+    ctx.textAlign = "left";
+    ctx.font = "26px ui-monospace, Menlo, monospace";
+    ctx.fillStyle = "#4a453c";
+    ctx.fillText(label, x + 56, y);
+    ctx.fillStyle = "#1c1a16";
+    var gap = x + 56 + ctx.measureText(String(label)).width + 28;
+    var minX = x + 200;
+    var valueX = Math.max(minX, gap);
+    var text = String(value || "");
+    if (paperRight) {
+      var maxW = paperRight - valueX - 24;
+      while (text.length > 1 && ctx.measureText(text).width > maxW) {
+        text = text.slice(0, -1);
+      }
+    }
+    ctx.fillText(text, valueX, y);
+  }
+
+  function drawTicketCard(kind, mode) {
+    var ticket = state.ticket;
+    var privateMode = mode === "private" && ticket;
+    var w = 720;
+    var h = 1280;
+    var canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    var ctx = canvas.getContext("2d");
+    var x = 90;
+    var y = 140;
+    var pw = 540;
+    var ph = 980;
+    drawPaperShell(ctx, w, h, x, y, pw, ph);
+
+    var title = kind === "tear" ? "今晚撕了一张" : "今晚的比较小票";
+    ctx.fillStyle = "#1c1a16";
+    ctx.textAlign = "center";
+    ctx.font = "700 34px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillText(title, w / 2, y + 78);
+    ctx.fillStyle = "#4a453c";
+    ctx.font = "20px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillText(privateMode ? "本机完整 · 热敏存根" : "公开安全 · 空票脸存根", w / 2, y + 118);
+
+    drawDash(ctx, x, pw, y + 148);
+
+    var dateStr = ticket ? ticket.date : nightKey(new Date());
+    var clockStr = ticket ? ticket.clock : "——";
+    var noStr = ticket ? padNo(ticket.no) : "0000";
+    var tonightStr = ticket && ticket.tonightIndex ? "今晚第 " + ticket.tonightIndex + " 张" : "今晚 × 1";
+    var whoStr = privateMode ? objectLine(ticket) : "████";
+    var feelStr = privateMode ? (ticket.feeling || "—") : "████";
+    var biteStr = privateMode ? (ticket.theyHave || "—") : "████";
+    var stamp = ticket ? pickStamp(ticket) : "今晚结算";
+
+    var right = x + pw;
+    drawRow(ctx, x, y + 210, "日期", dateStr, right);
+    drawRow(ctx, x, y + 270, "时间", clockStr, right);
+    drawRow(ctx, x, y + 330, "票号", "No. " + noStr, right);
+    drawRow(ctx, x, y + 390, "次序", tonightStr, right);
+    drawRow(ctx, x, y + 450, "想到", whoStr, right);
+    drawRow(ctx, x, y + 510, "感觉", feelStr, right);
+    drawRow(ctx, x, y + 570, "比一口", biteStr, right);
+
+    drawDash(ctx, x, pw, y + 620);
+
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#c9a227";
+    ctx.font = "700 36px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillText("已付 · 无法退款", w / 2, y + 700);
+    ctx.fillStyle = "#4a453c";
+    ctx.font = "22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillText("比较不是病。是燃料。", w / 2, y + 760);
+    ctx.fillText(privateMode ? "本机完整票脸 · 自行决定是否外传" : "公开默认打码 · 不含真名与感受", w / 2, y + 820);
+    ctx.fillText("不是心理咨询、不算命、不保证心情变好。", w / 2, y + 870);
+
+    drawStamp(ctx, x + pw - 120, y + 900, stamp);
+
+    ctx.fillStyle = "rgba(232, 195, 122, 0.75)";
     ctx.font = "16px PingFang SC, sans-serif";
-    ctx.fillText((kind === "tear" ? "今晚撕了一张" : "今晚的账单") + "  ·  空票脸 · 已付无法退款", w / 2, h - 64);
+    ctx.fillText(title + "  ·  " + (privateMode ? "本机完整" : "公开安全") + " · 已付无法退款", w / 2, h - 48);
     return canvas;
+  }
+
+  function drawWeekCard(mode) {
+    var summary = weekSummary();
+    var privateMode = mode === "private";
+    var lines = Math.max(7, summary.tickets.length);
+    var w = 720;
+    var h = Math.min(2400, 980 + lines * 54);
+    var canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    var ctx = canvas.getContext("2d");
+    var x = 70;
+    var y = 80;
+    var pw = 580;
+    var ph = h - 160;
+    drawPaperShell(ctx, w, h, x, y, pw, ph);
+
+    ctx.fillStyle = "#1c1a16";
+    ctx.textAlign = "center";
+    ctx.font = "700 34px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillText("本周总票", w / 2, y + 70);
+    ctx.fillStyle = "#4a453c";
+    ctx.font = "20px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillText("账单式存根 · 周 " + summary.weekKey + " 起", w / 2, y + 110);
+
+    drawDash(ctx, x, pw, y + 140);
+
+    var right = x + pw;
+    var yy = y + 200;
+    drawRow(ctx, x, yy, "出票次数", summary.total + " 次", right);
+    yy += 56;
+    drawRow(ctx, x, yy, "归档", String(summary.archived), right);
+    yy += 56;
+    drawRow(ctx, x, yy, "撕掉", String(summary.tornCount), right);
+    yy += 56;
+    drawRow(ctx, x, yy, "最常时段", summary.slot || "—", right);
+    yy += 56;
+    drawRow(ctx, x, yy, "最常感觉", privateMode ? (summary.feel || "—") : "████", right);
+    yy += 56;
+    if (summary.acidDayLabel) {
+      drawRow(ctx, x, yy, "最酸的是", summary.acidDayLabel, right);
+      yy += 56;
+    } else if (summary.peakDayLabel && summary.peakDayLabel !== "—") {
+      drawRow(ctx, x, yy, "最忙的是", summary.peakDayLabel, right);
+      yy += 56;
+    }
+    drawRow(ctx, x, yy, "最常想到", privateMode ? (summary.who || "—") : "████", right);
+    yy += 40;
+    drawDash(ctx, x, pw, yy);
+    yy += 50;
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#4a453c";
+    ctx.font = "22px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillText(privateMode ? "本周明细（本机）" : "本周明细（打码）", x + 56, yy);
+    yy += 40;
+
+    if (!summary.tickets.length) {
+      ctx.fillStyle = "#1c1a16";
+      ctx.font = "24px ui-monospace, Menlo, monospace";
+      ctx.fillText("本周还空着。", x + 56, yy + 20);
+      yy += 60;
+    } else {
+      summary.tickets.forEach(function (t) {
+        if (yy > y + ph - 180) return;
+        ctx.fillStyle = "#4a453c";
+        ctx.font = "18px ui-monospace, Menlo, monospace";
+        ctx.fillText(t.date + " " + t.clock + "  No." + padNo(t.no), x + 56, yy);
+        yy += 28;
+        ctx.fillStyle = "#1c1a16";
+        ctx.font = "22px ui-monospace, Menlo, monospace";
+        if (privateMode) {
+          var bite = t.theyHave ? " · " + t.theyHave : "";
+          ctx.fillText((t.who || "—") + bite, x + 56, yy);
+        } else {
+          ctx.fillText("████  ·  ████", x + 56, yy);
+        }
+        yy += 42;
+      });
+    }
+
+    drawDash(ctx, x, pw, Math.min(yy + 10, y + ph - 140));
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#c9a227";
+    ctx.font = "700 34px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillText("已付 · 无法退款", w / 2, y + ph - 90);
+    ctx.fillStyle = "#4a453c";
+    ctx.font = "20px PingFang SC, Hiragino Sans GB, Noto Sans SC, sans-serif";
+    ctx.fillText("本周结算完毕。比较不是病。是燃料。", w / 2, y + ph - 48);
+
+    drawStamp(ctx, x + pw - 110, y + ph - 120, "今晚结算");
+
+    ctx.fillStyle = "rgba(232, 195, 122, 0.75)";
+    ctx.font = "16px PingFang SC, sans-serif";
+    ctx.fillText("本周总票  ·  " + (privateMode ? "本机完整" : "公开安全") + " · 已付无法退款", w / 2, h - 36);
+    return canvas;
+  }
+
+  function drawBillCanvas(kind, mode) {
+    var m = mode || shareMode;
+    if (kind === "week") return drawWeekCard(m);
+    return drawTicketCard(kind, m);
   }
 
   function canvasPngBlob(canvas, cb) {
@@ -1350,26 +1772,30 @@
   }
 
   function setShareStatus(msg) {
-    shareStatus.textContent = msg || "";
+    if (shareStatus) shareStatus.textContent = msg || "";
   }
 
   function openShareSheet(kind) {
-    shareKind = kind === "tear" ? "tear" : "ticket";
-    setShareStatus("");
-    shareSheet.hidden = false;
+    if (kind === "week") shareKind = "week";
+    else if (kind === "tear") shareKind = "tear";
+    else shareKind = "ticket";
+    shareMode = "public";
+    syncShareModeUi();
+    setShareStatus(shareMode === "public" ? "默认公开安全。一点就下载 PNG。" : "");
+    if (shareSheet) shareSheet.hidden = false;
   }
 
   function closeShareSheet() {
-    shareSheet.hidden = true;
+    if (shareSheet) shareSheet.hidden = true;
     setShareStatus("");
   }
 
   function shareNative() {
     var text = shareCaption();
-    var canvas = drawBillCanvas(shareKind);
+    var canvas = drawBillCanvas(shareKind, shareMode);
     canvasPngBlob(canvas, function (blob) {
-      var file = blob ? new File([blob], "今晚的账单.png", { type: "image/png" }) : null;
-      var payload = { title: "今晚的账单", text: text };
+      var file = blob ? new File([blob], shareFileName(), { type: "image/png" }) : null;
+      var payload = { title: shareSheetTitle ? shareSheetTitle.textContent : "晒图卡", text: text };
       if (file && navigator.canShare) {
         try {
           if (navigator.canShare({ files: [file] })) payload.files = [file];
@@ -1383,7 +1809,7 @@
         });
         return;
       }
-      setShareStatus("这台设备没有系统分享。请复制文案或下载图片。");
+      setShareStatus("这台设备没有系统分享。请下载 PNG。");
     });
   }
 
@@ -1391,7 +1817,7 @@
     var text = shareCaption();
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () {
-        setShareStatus("已复制：不含想到的人与感受。");
+        setShareStatus(shareMode === "public" ? "已复制公开文案。" : "已复制（完整模式仍建议慎发）。");
       }).catch(function () {
         fallbackCopy(text);
       });
@@ -1407,7 +1833,7 @@
     ta.select();
     try {
       document.execCommand("copy");
-      setShareStatus("已复制：不含想到的人与感受。");
+      setShareStatus("已复制文案。");
     } catch (e) {
       setShareStatus(text);
     }
@@ -1415,7 +1841,7 @@
   }
 
   function shareDownload() {
-    var canvas = drawBillCanvas(shareKind);
+    var canvas = drawBillCanvas(shareKind, shareMode);
     canvasPngBlob(canvas, function (blob) {
       if (!blob) {
         setShareStatus("这台浏览器不能导出图片。");
@@ -1424,20 +1850,57 @@
       var url = URL.createObjectURL(blob);
       var a = document.createElement("a");
       a.href = url;
-      a.download = "今晚的账单.png";
+      a.download = shareFileName();
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       later(function () { URL.revokeObjectURL(url); }, 1500);
-      setShareStatus("已下载图片：不含想到的人与感受。");
+      setShareStatus(
+        shareMode === "public"
+          ? "已下载公开晒图 PNG。"
+          : "已下载本机完整 PNG。外传前请再确认。"
+      );
     });
   }
 
-  document.getElementById("btn-share-ticket").addEventListener("click", function () {
-    openShareSheet(shareKind);
-  });
+  function setShareMode(mode) {
+    shareMode = mode === "private" ? "private" : "public";
+    syncShareModeUi();
+    setShareStatus(shareMode === "public" ? "已切到公开安全。" : "已切到本机完整。");
+  }
+
+  if (shareBtn) {
+    shareBtn.addEventListener("click", function () {
+      openShareSheet(shareKind);
+    });
+  }
+  var exportBtn = document.getElementById("btn-export-card");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", function () {
+      if (!state.ticket) return;
+      openShareSheet("ticket");
+    });
+  }
+  var weekBillBtn = document.getElementById("btn-week-bill");
+  if (weekBillBtn) {
+    weekBillBtn.addEventListener("click", function () {
+      openShareSheet("week");
+    });
+  }
+  var modePublic = document.getElementById("share-mode-public");
+  var modePrivate = document.getElementById("share-mode-private");
+  if (modePublic) modePublic.addEventListener("click", function () { setShareMode("public"); });
+  if (modePrivate) modePrivate.addEventListener("click", function () { setShareMode("private"); });
   document.getElementById("btn-share-native").addEventListener("click", shareNative);
   document.getElementById("btn-share-copy").addEventListener("click", shareCopy);
   document.getElementById("btn-share-download").addEventListener("click", shareDownload);
   document.getElementById("btn-share-close").addEventListener("click", closeShareSheet);
+
+  /* 启动：刷新广场数字；周日进抽屉会提示周总票 */
+  refreshPlaza();
+  try {
+    state.tonightIndex = loadNight().prints || 0;
+  } catch (e) {
+    state.tonightIndex = 0;
+  }
 })();

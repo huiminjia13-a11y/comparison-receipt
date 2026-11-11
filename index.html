@@ -27,7 +27,8 @@
       </div>
       <button type="button" class="btn primary" id="btn-start">开始打票</button>
       <button type="button" class="btn ghost" id="btn-open-drawer">本周抽屉</button>
-      <p class="fine">只存在这台设备上。没有账号。默认不分享。</p>
+      <p class="plaza" id="plaza-line" aria-live="polite">今晚也有人在打票。</p>
+      <p class="fine">只存在这台设备上。没有账号。默认不分享。聚合数字不含任何人的票面。</p>
       <p class="disclaimer">不是心理咨询、不算命、不保证心情变好。</p>
     </section>
 
@@ -91,8 +92,10 @@
           <article class="receipt" id="receipt"></article>
         </div>
       </div>
+      <p class="tonight-chip" id="tonight-chip" hidden></p>
       <div class="actions" id="ticket-actions" hidden>
-        <button type="button" class="btn primary" id="btn-archive">归档</button>
+        <button type="button" class="btn primary" id="btn-export-card">一键晒图</button>
+        <button type="button" class="btn ghost" id="btn-archive">归档</button>
         <button type="button" class="btn danger" id="btn-tear">撕掉</button>
       </div>
     </section>
@@ -107,11 +110,13 @@
 
     <section class="screen" data-screen="drawer" aria-labelledby="drawer-title">
       <h1 id="drawer-title" class="screen-title">本周抽屉</h1>
+      <p class="week-banner" id="week-banner" hidden>今天周日。可以晒出本周总票。</p>
       <article class="settle" id="settle-slip" aria-label="本周结算单"></article>
       <ul class="drawer-list" id="drawer-list"></ul>
-      <button type="button" class="btn primary" id="btn-drawer-new">打一张</button>
+      <button type="button" class="btn primary" id="btn-week-bill">导出本周总票</button>
+      <button type="button" class="btn ghost" id="btn-drawer-new">打一张</button>
       <button type="button" class="btn ghost" id="btn-drawer-home">回入口</button>
-      <p class="disclaimer">只列归档过的票。撕掉的只计数、不留内容。</p>
+      <p class="disclaimer">只列归档过的票。撕掉的只计数、不留内容。周总票默认打码，可选手动完整。</p>
     </section>
   </div>
 
@@ -256,11 +261,15 @@
   </div>
 
   <div id="share-sheet" class="share-sheet" hidden>
-    <p class="share-sheet-title">今晚的账单</p>
-    <p class="share-sheet-copy">默认空票脸：名字与感觉打成 ████，只留一句金句。没有排行榜。默认不分享。</p>
-    <button type="button" class="btn primary" id="btn-share-native">分享</button>
+    <p class="share-sheet-title" id="share-sheet-title">晒图卡</p>
+    <p class="share-sheet-copy" id="share-sheet-copy">默认公开安全：名字与感觉打成 ████，只留日期、票号、章与金句。一键下载 PNG，不用自己裁。</p>
+    <div class="share-mode" role="radiogroup" aria-label="晒图模式">
+      <button type="button" class="share-mode-btn is-on" id="share-mode-public" data-mode="public" aria-pressed="true">公开安全</button>
+      <button type="button" class="share-mode-btn" id="share-mode-private" data-mode="private" aria-pressed="false">本机完整</button>
+    </div>
+    <button type="button" class="btn primary" id="btn-share-download">下载晒图 PNG</button>
+    <button type="button" class="btn ghost" id="btn-share-native">系统分享</button>
     <button type="button" class="btn ghost" id="btn-share-copy">复制文案</button>
-    <button type="button" class="btn ghost" id="btn-share-download">下载图片</button>
     <button type="button" class="btn ghost" id="btn-share-close">关闭</button>
     <p class="fine" id="share-status" role="status"></p>
   </div>
