@@ -8,6 +8,7 @@
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
   <title>今晚的比较小票</title>
   <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
   <script>
     (function () {
@@ -52,6 +53,7 @@
         <legend>今天你想到了谁</legend>
         <p class="fine">前公司、那个 offer、过去的自己、突然冒出来的人……前任只是其中一种。</p>
         <div class="chips" id="who-chips" role="radiogroup" aria-label="想到了谁"></div>
+        <p class="thought-n-hint" id="thought-n-hint" hidden></p>
         <label class="field">
           <span>写一下是谁（可不填）</span>
           <input id="who-name" type="text" maxlength="20" placeholder="名字、称呼，或不写" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
@@ -63,8 +65,6 @@
         <span>此刻的感觉（可不填。想、气、不服，都能写在同一行）</span>
         <input id="feeling" type="text" maxlength="40" placeholder="想 / 气 / 又气又想 / 不服" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
         <div class="suggest-chips" id="feeling-suggest" data-for="feeling" aria-label="常用感觉"></div>
-        <button type="button" class="more-feelings" id="btn-more-feelings" aria-expanded="false" aria-controls="feeling-more">更多</button>
-        <div class="suggest-chips" id="feeling-more" data-for="feeling" aria-label="更多感觉" hidden></div>
         <div class="pinyin-box" id="feeling-pinyin" hidden>
           <p class="pinyin-tip">拼音候选（离线）· 点一下填入</p>
           <div class="suggest-chips" id="feeling-pinyin-list" role="listbox" aria-label="拼音候选"></div>
