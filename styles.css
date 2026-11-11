@@ -1175,24 +1175,30 @@ input[type="text"]:focus {
   width: 88px;
 }
 
-/* 出票：按钮粘在猫的上方，猫只占最底一条，不压「一键晒图 / 归档 / 撕掉」 */
+/* 出票：归档/撕掉始终完整可见可点；起名卡在按钮下方、猫旁，不覆盖操作 */
 #app[data-screen="ticket"] {
-  padding-bottom: calc(92px + var(--safe-bottom));
+  padding-bottom: calc(120px + var(--safe-bottom));
 }
 
 #app[data-screen="ticket"] .actions {
-  position: sticky;
-  bottom: calc(78px + var(--safe-bottom));
-  z-index: 6;
+  position: relative;
+  bottom: auto;
+  z-index: 8;
   background: #14120f;
   padding-top: 8px;
+  padding-bottom: 4px;
+  margin-top: 4px;
+}
+
+#app[data-screen="ticket"].has-name-prompt {
+  padding-bottom: calc(168px + var(--safe-bottom));
 }
 
 #app[data-screen="ticket"] ~ .pet {
   left: max(4px, calc(50% - 204px));
   bottom: calc(4px + var(--safe-bottom));
   width: 68px;
-  z-index: 4;
+  z-index: 3;
 }
 
 .pet.is-gone {
@@ -1375,7 +1381,7 @@ input[type="text"]:focus {
   to { opacity: 0; }
 }
 
-/* 起名小卡：插在票下方、归档/撕掉上方，不挡票顶标题/日期 */
+/* 起名小卡：归档/撕掉下方、猫旁；绝不盖住操作按钮 */
 .name-slip {
   position: relative;
   left: auto;
@@ -1383,10 +1389,11 @@ input[type="text"]:focus {
   top: auto;
   bottom: auto;
   transform: none;
-  width: min(100%, 280px);
+  width: min(100%, 240px);
   max-height: none;
   overflow: visible;
   align-self: flex-start;
+  margin-left: 72px; /* 给左下角橘猫留空 */
   background: var(--paper);
   color: var(--ink);
   padding: 10px 12px;
@@ -1397,7 +1404,9 @@ input[type="text"]:focus {
   font-size: 12px;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
   pointer-events: auto;
-  margin: 4px 0 2px;
+  margin-top: 10px;
+  margin-bottom: 8px;
+  order: 99;
 }
 
 .name-slip[hidden] {

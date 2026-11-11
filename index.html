@@ -7,8 +7,9 @@
   <meta name="color-scheme" content="dark">
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
   <title>今晚的比较小票</title>
-  <link rel="icon" href="favicon.ico" sizes="any">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="./favicon.ico?v=3" sizes="32x32">
+  <link rel="icon" href="./favicon.svg?v=3" type="image/svg+xml">
+  <link rel="shortcut icon" href="./favicon.ico?v=3">
   <link rel="stylesheet" href="styles.css">
   <script>
     (function () {
@@ -16,6 +17,15 @@
         /* Prefer HTTPS on every host (Pages / mirrors / local http server). */
         if (location.protocol === "http:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
           location.replace("https://" + location.host + location.pathname + location.search + location.hash);
+        }
+        /* Pages project path (/comparison-receipt/) — keep favicon rooted to this app. */
+        var base = location.pathname.replace(/\/[^/]*$/, "/");
+        if (!base || base === "/") base = "./";
+        var links = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+        for (var i = 0; i < links.length; i++) {
+          var href = links[i].getAttribute("href") || "";
+          var file = href.replace(/^\.\//, "").replace(/^\//, "");
+          if (/^favicon\./.test(file)) links[i].setAttribute("href", base + file);
         }
       } catch (e) { /* ignore */ }
     })();
@@ -112,6 +122,12 @@
       </div>
       <p class="tonight-chip" id="tonight-chip" hidden></p>
       <p class="soft-ack" id="soft-ack" hidden aria-live="polite"></p>
+      <div class="actions" id="ticket-actions" hidden>
+        <button type="button" class="btn primary" id="btn-export-card">一键晒图</button>
+        <button type="button" class="btn ghost" id="btn-archive">归档</button>
+        <button type="button" class="btn danger" id="btn-tear">撕掉</button>
+      </div>
+      <!-- 起名小卡在归档/撕掉下方：不挡票顶，也不挡操作 -->
       <div id="name-slip" class="name-slip" hidden>
         <p>第一次见到这只橘猫。要起个名字吗。</p>
         <input id="pet-name-input" type="text" maxlength="8" placeholder="可不填" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false">
@@ -119,11 +135,6 @@
           <button type="button" class="btn primary" id="btn-name-ok">就叫这个</button>
           <button type="button" class="btn ghost" id="btn-name-skip">跳过</button>
         </div>
-      </div>
-      <div class="actions" id="ticket-actions" hidden>
-        <button type="button" class="btn primary" id="btn-export-card">一键晒图</button>
-        <button type="button" class="btn ghost" id="btn-archive">归档</button>
-        <button type="button" class="btn danger" id="btn-tear">撕掉</button>
       </div>
     </section>
 

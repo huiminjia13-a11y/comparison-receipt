@@ -1,7 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="橘猫">
-  <rect width="64" height="64" rx="10" fill="#14120f"/>
-  <rect x="14" y="10" width="36" height="44" rx="2" fill="#f3eee0"/>
-  <path d="M14 10h36v4H14z" fill="#e8e1d0"/>
-  <path d="M20 22h24M20 28h18M20 34h22M20 40h14" stroke="#c45a12" stroke-width="2.2" stroke-linecap="round"/>
-  <circle cx="42" cy="44" r="9" fill="none" stroke="#c42b22" stroke-width="2.2" transform="rotate(-18 42 44)"/>
+  <rect width="64" height="64" rx="12" fill="#14120f"/>
+  <path d="M18 28 L12 8 L28 22 Z" fill="#e87820"/>
+  <path d="M46 22 L52 8 L36 22 Z" fill="#e87820"/>
+  <ellipse cx="32" cy="36" rx="18" ry="16" fill="#e87820"/>
+  <path d="M22 30 q3 10 0 16" fill="none" stroke="#4a1c08" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M32 28 q3 12 0 18" fill="none" stroke="#4a1c08" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M42 30 q-3 10 0 16" fill="none" stroke="#4a1c08" stroke-width="2.4" stroke-linecap="round"/>
+  <ellipse cx="25" cy="34" rx="3.2" ry="3.6" fill="#e8a020"/>
+  <ellipse cx="39" cy="34" rx="3.2" ry="3.6" fill="#e8a020"/>
+  <ellipse cx="25.6" cy="34.2" rx="1.1" ry="2" fill="#140e0a"/>
+  <ellipse cx="39.6" cy="34.2" rx="1.1" ry="2" fill="#140e0a"/>
+  <ellipse cx="32" cy="40" rx="1.8" ry="1.2" fill="#a04838"/>
 </svg>

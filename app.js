@@ -667,14 +667,24 @@
     if (tonightChip) {
       if (state.tonightIndex > 0) {
         tonightChip.hidden = false;
+        var plazaNote = "（仅统计次数，不含原文、名字和感觉）";
         if (snap.source === "remote") {
           tonightChip.textContent =
-            "今晚第 " + state.tonightIndex + " 张 · 广场累计打票 " + snap.prints;
+            "今晚第 " +
+            state.tonightIndex +
+            " 张 · 广场累计打票 " +
+            snap.prints +
+            plazaNote;
         } else if (snap.source === "pending") {
-          tonightChip.textContent = "今晚第 " + state.tonightIndex + " 张 · 广场计数连接中";
+          tonightChip.textContent =
+            "今晚第 " + state.tonightIndex + " 张 · 广场计数连接中" + plazaNote;
         } else {
           tonightChip.textContent =
-            "今晚第 " + state.tonightIndex + " 张 · 广场未连上 · 本机 " + snap.localPrints;
+            "今晚第 " +
+            state.tonightIndex +
+            " 张 · 广场未连上 · 本机 " +
+            snap.localPrints +
+            plazaNote;
         }
       } else {
         tonightChip.hidden = true;
@@ -979,6 +989,11 @@
     pet.classList.remove("is-inline");
   }
 
+  function setNamePromptOpen(open) {
+    if (!app) return;
+    app.classList.toggle("has-name-prompt", Boolean(open));
+  }
+
   function show(name) {
     app.dataset.screen = name;
     placePet(name);
@@ -994,6 +1009,7 @@
       /* 起名卡只挂在出票屏，不挡其它屏的操作 */
       var nameSlip = document.getElementById("name-slip");
       if (nameSlip) nameSlip.hidden = true;
+      setNamePromptOpen(false);
     }
   }
 
@@ -2184,10 +2200,12 @@
       var v = document.getElementById("pet-name-input").value.trim();
       writePetAnswer(v);
       slip.hidden = true;
+      setNamePromptOpen(false);
     });
     document.getElementById("btn-name-skip").addEventListener("click", function () {
       writePetAnswer("");
       slip.hidden = true;
+      setNamePromptOpen(false);
     });
   }
 
@@ -2196,12 +2214,24 @@
     if (petPromptAnswered()) {
       var existing = readPetName();
       if (existing && petNameTag) petNameTag.textContent = existing;
+      setNamePromptOpen(false);
       return;
     }
     var slip = document.getElementById("name-slip");
     if (!slip) return;
     wirePetNameSlip();
     slip.hidden = false;
+    setNamePromptOpen(true);
+    /* 滚到归档/撕掉：确保操作完整可见，起名卡在其下方 */
+    if (ticketActions && ticketActions.scrollIntoView) {
+      later(function () {
+        try {
+          ticketActions.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        } catch (e) {
+          ticketActions.scrollIntoView(false);
+        }
+      }, 40);
+    }
   }
 
   (function initPetName() {
