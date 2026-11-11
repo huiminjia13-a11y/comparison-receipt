@@ -19,19 +19,14 @@
     { id: "days", label: "已经好几天" }
   ];
 
-  /* 常用词 / 拼一句：离线点选；野心 + 夜里打转，不是鸡汤 */
-  var FEELING_WORDS = [
-    "想", "气", "惦记", "不服", "空", "来不及",
-    "怒火", "思念", "酸", "憋", "慌", "烦",
-    "麻", "累", "眼红", "上头", "咬牙", "说不清"
+  /* 先露 8 个常用（含怒火、思念、不服）；其余收进「更多」。 */
+  var FEELING_COMMON = ["想", "气", "不服", "怒火", "思念", "惦记", "空", "又气又想"];
+  var FEELING_MORE = [
+    "酸", "憋", "慌", "烦", "麻", "累", "眼红", "上头", "咬牙", "说不清", "来不及",
+    "想赢", "不服气", "还在想", "空得很", "来不及了", "比较上头", "夜里又冒出来", "羡慕到牙痒"
   ];
-  var FEELING_PHRASES = [
-    "又气又想", "想赢", "不服气", "还在想", "空得很",
-    "来不及了", "比较上头", "夜里又冒出来", "羡慕到牙痒"
-  ];
-  var WHO_NAME_WORDS = [
-    "他", "她", "前公司", "那个 offer", "以前的自己", "突然想到的人", "同学", "旧人"
-  ];
+  /* 称呼不重复「今天你想到了谁」，避免两排都像选中了同一个人。 */
+  var WHO_NAME_WORDS = ["他", "她", "导师", "同事", "家人", "上司"];
   var THEY_HAVE_WORDS = [
     "那个 offer", "头衔", "看起来很确定的人生", "胆子", "钱", "房子", "签证", "节奏", "人脉"
   ];
@@ -164,7 +159,11 @@
       credentials: "omit",
       cache: "no-store"
     }).then(function (res) {
-      if (!res.ok) throw new Error("counter " + res.status);
+      if (!res.ok) {
+        var err = new Error("counter " + res.status);
+        err.status = res.status;
+        throw err;
+      }
       return res.json();
     }).then(function (data) {
       var n = Number(data && data.value);
@@ -173,14 +172,46 @@
     });
   }
 
+  /* /info 对不存在的键也回 200（exists:false），避免控制台刷 /get 的 404。 */
+  function readCounter(key) {
+    if (!canUseRemoteCounter()) return Promise.reject(new Error("offline"));
+    return fetch(counterUrl("info", key), {
+      method: "GET",
+      mode: "cors",
+      credentials: "omit",
+      cache: "no-store"
+    }).then(function (res) {
+      if (!res.ok) throw new Error("counter " + res.status);
+      return res.json();
+    }).then(function (data) {
+      if (!data || data.exists === false) return 0;
+      var n = Number(data.value);
+      if (!isFinite(n) || n < 0) return 0;
+      return n;
+    });
+  }
+
   function hitCounter(key) {
     if (!canUseRemoteCounter()) return Promise.reject(new Error("offline"));
-    return fetchCounterJson(counterUrl("hit", key));
+    function once() {
+      return fetchCounterJson(counterUrl("hit", key));
+    }
+    return once().catch(function (err) {
+      /* 键还没建时 hit 会 404，情绪就没记上。先 create 再 hit。 */
+      if (!err || err.status !== 404) throw err;
+      return fetch(counterUrl("create", key), {
+        method: "GET",
+        mode: "cors",
+        credentials: "omit",
+        cache: "no-store"
+      }).then(function () {
+        return once();
+      });
+    });
   }
 
   function getCounter(key) {
-    if (!canUseRemoteCounter()) return Promise.reject(new Error("offline"));
-    return fetchCounterJson(counterUrl("get", key)).catch(function () {
+    return readCounter(key).catch(function () {
       return 0;
     });
   }
@@ -261,41 +292,44 @@
     function printFeed(duration) {
       if (!ensure()) return;
       stopPrint();
+      var dur = Math.max(0.3, duration || 0.4);
       var t0 = ctx.currentTime + 0.02;
+      var attack = Math.min(0.12, dur * 0.25);
+      var release = Math.min(0.18, dur * 0.3);
       printBus = ctx.createGain();
       printBus.gain.value = 1;
       printBus.connect(master.input);
 
       var hiss = ctx.createGain();
       hiss.gain.setValueAtTime(0, t0);
-      hiss.gain.linearRampToValueAtTime(0.16, t0 + 0.25);
-      hiss.gain.setValueAtTime(0.16, t0 + duration - 0.4);
-      hiss.gain.linearRampToValueAtTime(0, t0 + duration);
+      hiss.gain.linearRampToValueAtTime(0.16, t0 + attack);
+      hiss.gain.setValueAtTime(0.16, t0 + dur - release);
+      hiss.gain.linearRampToValueAtTime(0, t0 + dur);
       var bp = filter("bandpass", 2300, 1.4);
       bp.connect(hiss);
       hiss.connect(printBus);
-      noise(t0, duration, bp);
+      noise(t0, dur, bp);
 
       var motor = ctx.createOscillator();
       motor.type = "triangle";
       motor.frequency.value = 118;
       var mg = ctx.createGain();
       mg.gain.setValueAtTime(0, t0);
-      mg.gain.linearRampToValueAtTime(0.05, t0 + 0.2);
-      mg.gain.setValueAtTime(0.05, t0 + duration - 0.35);
-      mg.gain.linearRampToValueAtTime(0, t0 + duration);
+      mg.gain.linearRampToValueAtTime(0.05, t0 + attack);
+      mg.gain.setValueAtTime(0.05, t0 + dur - release);
+      mg.gain.linearRampToValueAtTime(0, t0 + dur);
       motor.connect(mg);
       mg.connect(printBus);
       motor.start(t0);
-      motor.stop(t0 + duration + 0.05);
+      motor.stop(t0 + dur + 0.05);
 
       var tickBp = filter("highpass", 2600, 0.7);
       var tickGain = ctx.createGain();
       tickGain.gain.value = 0;
       tickBp.connect(tickGain);
       tickGain.connect(printBus);
-      noise(t0, duration, tickBp);
-      for (var t = 0.08; t < duration - 0.1; t += 0.038 + Math.random() * 0.012) {
+      noise(t0, dur, tickBp);
+      for (var t = 0.05; t < dur - 0.06; t += 0.038 + Math.random() * 0.012) {
         var a = t0 + t;
         var level = 0.22 * (0.6 + Math.random() * 0.4);
         tickGain.gain.setValueAtTime(level, a);
@@ -486,7 +520,7 @@
   }
 
   function nightKey(date) {
-    var p = shanghaiParts(date || new Date());
+    var p = localParts(date || new Date());
     return p.year + "-" + p.month + "-" + p.day;
   }
 
@@ -647,6 +681,14 @@
   }
 
   function applyRemoteCounts(opens, prints, emotions) {
+    /* 在途的旧读数不能把「刚打出的这一张」盖回去。 */
+    if (state.remote && state.remoteOk) {
+      if (prints < state.remote.prints) prints = state.remote.prints;
+      var prevE = state.remote.emotions || {};
+      EMOTION_BUCKETS.forEach(function (k) {
+        if ((emotions[k] || 0) < (prevE[k] || 0)) emotions[k] = prevE[k] || 0;
+      });
+    }
     state.remote = {
       opens: opens,
       prints: prints,
@@ -704,8 +746,18 @@
     });
   }
 
+  function noteRemotePrint(bucket) {
+    if (!(state.remoteOk && state.remote)) return;
+    state.remote.prints += 1;
+    if (!state.remote.emotions) state.remote.emotions = emptyEmotions();
+    state.remote.emotions[bucket] = (state.remote.emotions[bucket] || 0) + 1;
+    refreshPlaza();
+  }
+
   function bumpRemotePrint(bucket) {
     if (!canUseRemoteCounter()) return;
+    /* 打印已成功就先把广场累计加上，不等 hit 回来，也不等撕票。 */
+    noteRemotePrint(bucket);
     var emoKey = EMO_KEY[bucket] || EMO_KEY["其他"];
     Promise.all([hitCounter("prints"), hitCounter(emoKey)])
       .then(function (parts) {
@@ -720,52 +772,43 @@
         applyRemoteCounts(opens, parts[0], emotions);
       })
       .catch(function () {
-        /* 打票本机已记；远程失败时下次刷新会诚实标本机 */
-        loadRemotePlaza();
+        /* 乐观计数留着。失败时不要用旧的远程读数盖回去。 */
       });
   }
 
-  /* 中国夜礼产品：票面/今晚边界/周结算一律 Asia/Shanghai，不用浏览器本地或 UTC。 */
-  var DISPLAY_TZ = "Asia/Shanghai";
+  /* 票面、今晚、本周都用这台设备的本地时间。不用 Asia/Shanghai，也不用 UTC。 */
+  var WEEKDAY_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  function isShanghaiSunday(date) {
-    var p = shanghaiParts(date || new Date());
-    return p.weekday === "Sun";
+  function isLocalSunday(date) {
+    return (date || new Date()).getDay() === 0;
   }
 
   function weekdayZhFromParts(p) {
     return WEEKDAY_ZH[p.weekday] || p.weekday || "—";
   }
 
-  function shanghaiParts(date) {
-    var parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: DISPLAY_TZ,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      weekday: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    }).formatToParts(date);
-    var map = {};
-    parts.forEach(function (p) {
-      map[p.type] = p.value;
-    });
-    return map;
+  function localParts(date) {
+    var d = date || new Date();
+    return {
+      year: String(d.getFullYear()),
+      month: String(d.getMonth() + 1).padStart(2, "0"),
+      day: String(d.getDate()).padStart(2, "0"),
+      hour: String(d.getHours()).padStart(2, "0"),
+      minute: String(d.getMinutes()).padStart(2, "0"),
+      weekday: WEEKDAY_EN[d.getDay()]
+    };
   }
 
   function weekStartKey(date) {
-    var p = shanghaiParts(date);
-    /* 中午 +08:00，用 UTC 日历日推周一，避免浏览器本地时区干扰。 */
-    var noon = new Date(p.year + "-" + p.month + "-" + p.day + "T12:00:00+08:00");
-    var day = noon.getUTCDay();
+    var d = new Date(date || new Date());
+    d.setHours(12, 0, 0, 0);
+    var day = d.getDay();
     var offset = day === 0 ? -6 : 1 - day;
-    noon.setUTCDate(noon.getUTCDate() + offset);
-    var y = noon.getUTCFullYear();
-    var m = String(noon.getUTCMonth() + 1).padStart(2, "0");
-    var d = String(noon.getUTCDate()).padStart(2, "0");
-    return y + "-" + m + "-" + d;
+    d.setDate(d.getDate() + offset);
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var da = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + da;
   }
 
   function padNo(n) {
@@ -850,8 +893,17 @@
   function show(name) {
     app.dataset.screen = name;
     if (shareSheet) shareSheet.hidden = true;
+    if (name !== "after") unparkNameSlip();
     if (name === "landing" || name === "form") petMood("idle");
     if (name === "landing") refreshPlaza();
+  }
+
+  function unparkNameSlip() {
+    var slip = document.getElementById("name-slip");
+    if (!slip || !slip.classList.contains("is-inline")) return;
+    document.body.appendChild(slip);
+    slip.classList.remove("is-inline");
+    if (readPetName() === null) slip.hidden = true;
   }
 
   function selectChip(root, id) {
@@ -874,6 +926,7 @@
     var pinyinList = document.getElementById("feeling-pinyin-list");
     if (pinyinBox) pinyinBox.hidden = true;
     if (pinyinList) pinyinList.innerHTML = "";
+    setMoreFeelings(false);
     petMood("idle");
     syncPrintEnabled();
   }
@@ -968,7 +1021,7 @@
     var store = loadStore();
     var no = store.seq + 1;
     var now = new Date();
-    var p = shanghaiParts(now);
+    var p = localParts(now);
     return {
       no: no,
       whoId: selectedId(whoChips),
@@ -978,7 +1031,7 @@
       feeling: feeling.value.trim(),
       durationId: selectedId(durationChips),
       durationLabel: durationLabel(selectedId(durationChips)),
-      /* 票面只显示这两项（上海时区），不显示 createdAt 的 UTC ISO。 */
+      /* 票面日期和时间是设备本地的当前时刻。 */
       clock: p.hour + ":" + p.minute,
       date: p.year + "-" + p.month + "-" + p.day,
       weekday: p.weekday,
@@ -991,7 +1044,7 @@
     return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  var PRINT_MS = 3600;
+  var PRINT_MS = 2300;
 
   function startPrint() {
     if (!printReady()) {
@@ -1017,7 +1070,6 @@
     receiptEl.className = "receipt";
     receiptEl.id = "receipt";
     receiptEl.innerHTML = receiptHtml(ticket);
-    receiptStage.appendChild(receiptEl);
 
     printer.classList.remove("is-done");
     led.classList.add("on");
@@ -1028,16 +1080,16 @@
 
     if (reducedMotion()) {
       receiptEl.classList.add("is-shown");
-      Sound.printFeed(0.9);
-      later(finishPrint, 900);
+      receiptStage.appendChild(receiptEl);
+      Sound.printFeed(0.4);
+      later(finishPrint, 420);
       return;
     }
 
+    receiptEl.classList.add("is-out");
+    receiptStage.appendChild(receiptEl);
     Sound.printFeed(PRINT_MS / 1000);
-    window.requestAnimationFrame(function () {
-      receiptEl.classList.add("is-out");
-    });
-    later(finishPrint, PRINT_MS + 100);
+    later(finishPrint, PRINT_MS);
   }
 
   // 纸完全出来 → 盖章落下 → 才出现「归档 / 撕掉」
@@ -1050,18 +1102,18 @@
       receiptEl.classList.add("is-stamped");
     }
     var reduce = reducedMotion();
-    // 章的动画在约 60% 处“落地”
     later(function () {
       Sound.thunk();
       petMood("blink");
-    }, reduce ? 0 : 200);
+    }, reduce ? 0 : 60);
     later(function () {
       printStatus.textContent = "请取票";
       ticketActions.hidden = false;
       state.canAct = true;
       petMood("watch");
       refreshPlaza();
-    }, reduce ? 150 : 700);
+      maybeAskPetName();
+    }, reduce ? 80 : 260);
   }
 
   function archiveTicket() {
@@ -1084,20 +1136,14 @@
 
     ticketActions.hidden = true;
     printStatus.textContent = "";
+    petMood("pride");
+    Sound.purr(0);
     if (reducedMotion()) {
-      petMood("pride");
-      Sound.purr(0);
-      later(function () { goAfter("archive"); }, 800);
+      later(function () { goAfter("archive"); }, 380);
       return;
     }
     receiptEl.classList.add("is-archiving");
-    later(function () {
-      petMood("pride");
-      Sound.purr(0);
-    }, 800);
-    later(function () {
-      goAfter("archive");
-    }, 1600);
+    later(function () { goAfter("archive"); }, 520);
   }
 
   // 生成一条锯齿撕口：两半的 clip-path 和撕裂线用同一组点，边缘严丝合缝
@@ -1120,8 +1166,24 @@
     return "polygon(" + edge + " 0%, " + path.join(", ") + ", " + edge + " 100%)";
   }
 
-  var TEAR_MS = 1900;
-  var TEAR_PAUSE_MS = 400;
+  var TEAR_MS = 780;
+
+  function spawnScraps() {
+    if (!receiptStage || reducedMotion()) return;
+    var n = 12;
+    for (var i = 0; i < n; i++) {
+      var s = document.createElement("span");
+      s.className = "scrap";
+      s.style.left = (28 + Math.random() * 44) + "%";
+      s.style.top = (8 + Math.random() * 70) + "%";
+      s.style.animationDelay = (Math.random() * 0.04) + "s";
+      s.style.setProperty("--dx", Math.round(Math.random() * 90 - 45) + "px");
+      s.style.setProperty("--rot", Math.round(Math.random() * 160 - 80) + "deg");
+      s.style.width = (7 + Math.random() * 8) + "px";
+      s.style.height = (9 + Math.random() * 10) + "px";
+      receiptStage.appendChild(s);
+    }
+  }
 
   function tearTicket() {
     if (!state.ticket || !state.canAct) return;
@@ -1135,13 +1197,16 @@
     petMood("flee");
     Sound.paws(0);
     Sound.unlock();
+    Sound.tear(0, 0.42);
+    Sound.rustle(0.05, 0.16);
+    Sound.rustle(0.16, 0.1);
+    spawnScraps();
 
     if (reducedMotion()) {
-      Sound.tear(0, 0.4);
       receiptEl.classList.add("is-fading");
       later(function () {
         goAfter("tear");
-      }, 700);
+      }, 420);
       return;
     }
 
@@ -1174,18 +1239,23 @@
     receiptEl.style.visibility = "hidden";
     receiptStage.classList.add("is-tearing");
 
-    // 0–0.25s 绷紧；0.25–0.9s 撕口从上往下走；0.9–1.9s 两半分开、落下、淡出；再停 0.4s
-    Sound.tear(0.24, 0.66);
-    Sound.rustle(1.05, 0.12);
-    Sound.rustle(1.35, 0.08);
     later(function () {
       goAfter("tear");
-    }, TEAR_MS + TEAR_PAUSE_MS);
+    }, TEAR_MS);
+  }
+
+  function parkNameSlip() {
+    var slip = document.getElementById("name-slip");
+    var after = document.querySelector('.screen[data-screen="after"]');
+    if (!slip || slip.hidden || !after) return;
+    after.insertBefore(slip, after.firstChild);
+    slip.classList.add("is-inline");
   }
 
   function goAfter(kind) {
     clearTimers();
     Sound.stopPrint();
+    parkNameSlip();
     if (kind === "archive") {
       afterTitle.textContent = "已归档";
       afterCopy.textContent = "进抽屉了。今晚结过一次。";
@@ -1286,9 +1356,10 @@
     });
     function dayLabel(iso) {
       if (!iso) return "—";
-      var fake = new Date(iso + "T12:00:00+08:00");
-      var p = shanghaiParts(fake);
-      return weekdayZhFromParts(p);
+      var parts = String(iso).split("-");
+      if (parts.length < 3) return "—";
+      var fake = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 12, 0, 0);
+      return weekdayZhFromParts(localParts(fake));
     }
     return {
       tickets: tickets,
@@ -1309,7 +1380,7 @@
   function renderDrawer() {
     var summary = weekSummary();
     if (weekBanner) {
-      weekBanner.hidden = !isShanghaiSunday(new Date());
+      weekBanner.hidden = !isLocalSunday(new Date());
     }
     settleSlip.innerHTML =
       '<div class="settle-head">本周结算单</div>' +
@@ -1511,13 +1582,27 @@
     box.hidden = false;
   }
 
-  renderSuggestChips(
-    document.getElementById("feeling-suggest"),
-    FEELING_WORDS.concat(FEELING_PHRASES),
-    "set"
-  );
+  renderSuggestChips(document.getElementById("feeling-suggest"), FEELING_COMMON, "set");
+  renderSuggestChips(document.getElementById("feeling-more"), FEELING_MORE, "set");
   renderSuggestChips(document.getElementById("who-name-suggest"), WHO_NAME_WORDS, "set");
   renderSuggestChips(document.getElementById("they-have-suggest"), THEY_HAVE_WORDS, "set");
+
+  function setMoreFeelings(open) {
+    var btn = document.getElementById("btn-more-feelings");
+    var more = document.getElementById("feeling-more");
+    if (!btn || !more) return;
+    more.hidden = !open;
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    btn.textContent = open ? "收起" : "更多";
+  }
+
+  var moreFeelingsBtn = document.getElementById("btn-more-feelings");
+  if (moreFeelingsBtn) {
+    moreFeelingsBtn.addEventListener("click", function () {
+      var more = document.getElementById("feeling-more");
+      setMoreFeelings(Boolean(more && more.hidden));
+    });
+  }
 
   document.querySelectorAll(".suggest-chips").forEach(function (root) {
     root.addEventListener("click", function (e) {
@@ -1595,15 +1680,19 @@
     petNameTag.textContent = name || "";
   }
 
+  function maybeAskPetName() {
+    if (readPetName() !== null) return;
+    var slip = document.getElementById("name-slip");
+    if (!slip || !slip.hidden) return;
+    slip.hidden = false;
+  }
+
   (function initPetName() {
     var existing = readPetName();
     var slip = document.getElementById("name-slip");
-    if (existing !== null) {
-      petNameTag.textContent = existing;
-      return;
-    }
+    if (existing !== null) petNameTag.textContent = existing;
     if (!slip) return;
-    slip.hidden = false;
+    slip.hidden = true;
     document.getElementById("btn-name-ok").addEventListener("click", function () {
       var v = document.getElementById("pet-name-input").value.trim();
       writePetName(v);

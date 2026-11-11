@@ -59,17 +59,20 @@ jobs:
           ]
 
           def get_value(key: str):
-              url = f"{BASE}/get/{NS}/{key}"
+              url = f"{BASE}/info/{NS}/{key}"
               for attempt in range(3):
                   try:
                       req = urllib.request.Request(url, headers={"User-Agent": "comparison-receipt-stats-mirror"})
                       with urllib.request.urlopen(req, timeout=8) as res:
                           data = json.load(res)
-                          return int(data.get("value") or 0)
+                          if data.get("exists") is False:
+                              return 0
+                          value = data.get("value")
+                          if value is None or int(value) < 0:
+                              return 0
+                          return int(value)
                   except urllib.error.HTTPError as e:
                       body = e.read().decode("utf-8", "replace")
-                      if e.code == 404 or "not found" in body.lower():
-                          return 0
                       print(f"warn {key} HTTP {e.code}: {body[:120]}")
                   except Exception as e:
                       print(f"warn {key}: {e}")

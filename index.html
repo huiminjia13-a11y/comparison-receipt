@@ -7,6 +7,7 @@
   <meta name="color-scheme" content="dark">
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
   <title>今晚的比较小票</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="stylesheet" href="styles.css">
   <script>
     (function () {
@@ -62,6 +63,8 @@
         <span>此刻的感觉（可不填。想、气、不服，都能写在同一行）</span>
         <input id="feeling" type="text" maxlength="40" placeholder="想 / 气 / 又气又想 / 不服" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
         <div class="suggest-chips" id="feeling-suggest" data-for="feeling" aria-label="常用感觉"></div>
+        <button type="button" class="more-feelings" id="btn-more-feelings" aria-expanded="false" aria-controls="feeling-more">更多</button>
+        <div class="suggest-chips" id="feeling-more" data-for="feeling" aria-label="更多感觉" hidden></div>
         <div class="pinyin-box" id="feeling-pinyin" hidden>
           <p class="pinyin-tip">拼音候选（离线）· 点一下填入</p>
           <div class="suggest-chips" id="feeling-pinyin-list" role="listbox" aria-label="拼音候选"></div>
@@ -266,7 +269,7 @@
   </aside>
 
   <div id="name-slip" class="name-slip" hidden>
-    <p>第一次见到它。要起个名字吗。</p>
+    <p>第一次见到这只狸花猫。要给它起个名字吗。</p>
     <input id="pet-name-input" type="text" maxlength="8" placeholder="可不填" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false">
     <button type="button" class="btn primary" id="btn-name-ok">就叫这个</button>
     <button type="button" class="btn ghost" id="btn-name-skip">跳过</button>

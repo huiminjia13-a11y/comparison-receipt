@@ -49,10 +49,10 @@ body {
 }
 
 .mast {
-  font-size: 11px;
-  letter-spacing: 0.28em;
+  font-size: 12px;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: #8a8173;
+  color: #e4d8c4;
   text-align: center;
   margin-bottom: 12px;
 }
@@ -71,6 +71,10 @@ body {
 #app[data-screen="drawer"] .screen[data-screen="drawer"] {
   display: flex;
   flex: 1;
+}
+
+#app[data-screen="after"] .screen[data-screen="after"] {
+  animation: none;
 }
 
 @keyframes fade-in {
@@ -107,8 +111,8 @@ h1 {
 .fine,
 .disclaimer {
   margin: 0;
-  color: #8a8173;
-  font-size: 12px;
+  color: #e4d8c4;
+  font-size: 13px;
   line-height: 1.6;
 }
 
@@ -298,17 +302,17 @@ h1 {
   appearance: none;
   border: 0;
   background: transparent;
-  color: #6f675c;
+  color: #f0e6d4;
   font: inherit;
-  font-size: 11px;
-  letter-spacing: 0.16em;
+  font-size: 13px;
+  letter-spacing: 0.12em;
   padding: 6px 8px;
   cursor: pointer;
 }
 
 .sound-toggle:hover,
 .sound-toggle[aria-pressed="true"] {
-  color: #9a917f;
+  color: #fff8ec;
 }
 
 .sound-toggle:focus-visible {
@@ -401,6 +405,10 @@ legend,
   margin-top: 2px;
 }
 
+.suggest-chips[hidden] {
+  display: none;
+}
+
 .suggest-chip {
   appearance: none;
   border: 1px solid #4a433a;
@@ -415,11 +423,45 @@ legend,
   border-radius: 2px;
 }
 
-.suggest-chip:hover,
-.suggest-chip:focus-visible {
-  border-color: var(--focus);
+.suggest-chip:hover {
+  border-color: #8a8173;
   color: var(--paper);
+}
+
+.suggest-chip:focus {
   outline: none;
+}
+
+.suggest-chip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-color: #6f675c;
+  color: var(--paper);
+}
+
+.more-feelings {
+  appearance: none;
+  align-self: flex-start;
+  border: 1px dashed #b7ab99;
+  background: transparent;
+  color: #f0e6d4;
+  min-height: 32px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.more-feelings:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.more-feelings[aria-expanded="true"] {
+  border-style: solid;
+  border-color: #e4d8c4;
 }
 
 .suggest-chip.is-pinyin {
@@ -586,7 +628,8 @@ input[type="text"]:focus {
   box-shadow:
     0 22px 40px rgba(0, 0, 0, 0.38),
     inset 0 -10px 18px rgba(120, 100, 70, 0.08);
-  clip-path: inset(0 0 100% 0);
+  max-height: 0;
+  overflow: hidden;
 }
 
 /* 纸边轻卷：热敏纸出完后的一点手感，不另加功能 */
@@ -609,23 +652,23 @@ input[type="text"]:focus {
 }
 
 .receipt.is-out {
-  clip-path: inset(0 0 0 0);
-  animation: spit 3.6s cubic-bezier(0.22, 0.7, 0.2, 1) forwards;
+  max-height: 96px;
+  overflow: hidden;
+  animation: spit 2.3s linear forwards;
 }
 
 .receipt.is-shown {
-  clip-path: none;
+  max-height: none;
+  overflow: visible;
   animation: none;
 }
 
 @keyframes spit {
-  0% { clip-path: inset(0 0 100% 0); transform: translateX(0); }
-  12% { clip-path: inset(0 0 86% 0); transform: translateX(-1px); }
-  28% { clip-path: inset(0 0 64% 0); transform: translateX(1px); }
-  46% { clip-path: inset(0 0 42% 0); transform: translateX(-1px); }
-  64% { clip-path: inset(0 0 22% 0); transform: translateX(1px); }
-  82% { clip-path: inset(0 0 8% 0); transform: translateX(-0.5px); }
-  100% { clip-path: inset(0 0 0 0); transform: translateX(0); }
+  0% { max-height: 96px; transform: translateX(0); }
+  18% { max-height: 210px; transform: translateX(-0.6px); }
+  42% { max-height: 360px; transform: translateX(0.6px); }
+  68% { max-height: 520px; transform: translateX(-0.4px); }
+  100% { max-height: 760px; transform: translateX(0); }
 }
 
 .receipt-head {
@@ -733,7 +776,7 @@ input[type="text"]:focus {
 }
 
 .receipt.is-archiving {
-  animation: file-away 0.85s ease-in forwards;
+  animation: file-away 0.48s ease-in forwards;
 }
 
 @keyframes file-away {
@@ -776,18 +819,20 @@ input[type="text"]:focus {
 .receipt-half .receipt {
   animation: none;
   clip-path: none;
+  max-height: none;
+  overflow: visible;
   box-shadow: none;
   width: 100%;
 }
 
 .receipt-half.left {
   transform-origin: 30% 100%;
-  animation: tear-left 1.9s cubic-bezier(0.45, 0, 0.6, 1) forwards;
+  animation: tear-left 0.72s cubic-bezier(0.4, 0, 0.7, 1) forwards;
 }
 
 .receipt-half.right {
   transform-origin: 70% 100%;
-  animation: tear-right 1.9s cubic-bezier(0.45, 0, 0.6, 1) forwards;
+  animation: tear-right 0.72s cubic-bezier(0.4, 0, 0.7, 1) forwards;
 }
 
 /* 0–15% 绷紧，15–47% 撕口往下走、上端先裂开一点，47–100% 分开、落下、淡出 */
@@ -817,7 +862,7 @@ input[type="text"]:focus {
   pointer-events: none;
   overflow: visible;
   z-index: 3;
-  animation: tear-line-fade 1.9s linear forwards;
+  animation: tear-line-fade 0.72s linear forwards;
 }
 
 .tear-line polyline {
@@ -827,7 +872,7 @@ input[type="text"]:focus {
   stroke-linejoin: miter;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: tear-run 0.66s cubic-bezier(0.4, 0.1, 0.7, 1) 0.25s forwards;
+  animation: tear-run 0.28s cubic-bezier(0.4, 0.1, 0.7, 1) forwards;
 }
 
 @keyframes tear-run {
@@ -840,8 +885,22 @@ input[type="text"]:focus {
 }
 
 .receipt.is-fading {
-  transition: opacity 0.5s ease;
+  transition: opacity 0.28s ease;
   opacity: 0;
+}
+
+.scrap {
+  position: absolute;
+  background: #f3eee0;
+  box-shadow: 0 1px 0 rgba(90, 70, 40, 0.25);
+  z-index: 4;
+  pointer-events: none;
+  animation: scrap-fall 0.7s ease-in forwards;
+}
+
+@keyframes scrap-fall {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  100% { transform: translate(var(--dx, 12px), 140px) rotate(var(--rot, 24deg)); opacity: 0; }
 }
 
 .drawer-list {
@@ -950,17 +1009,17 @@ input[type="text"]:focus {
 
 .pet {
   position: fixed;
-  left: max(4px, calc(50% - 204px));
+  left: max(8px, calc(50% - 210px - 136px));
   bottom: calc(8px + var(--safe-bottom));
-  width: 108px;
-  z-index: 8;
+  width: 104px;
+  z-index: 4;
   pointer-events: none;
   transform-origin: 50% 90%;
 }
 
-#app[data-screen="ticket"] ~ .pet {
-  bottom: 28%;
-  width: 100px;
+.pet,
+.pet * {
+  pointer-events: none;
 }
 
 .pet.is-gone {
@@ -1073,7 +1132,7 @@ input[type="text"]:focus {
 }
 
 .pet[data-mood="flee"] {
-  animation: slink-away 0.7s ease-in forwards;
+  animation: slink-away 0.55s ease-in forwards;
 }
 
 .pet[data-mood="fade"] {
@@ -1146,9 +1205,11 @@ input[type="text"]:focus {
 .name-slip {
   position: fixed;
   left: 50%;
-  bottom: calc(88px + var(--safe-bottom));
+  top: calc(48px + var(--safe-top));
   transform: translateX(-50%);
   width: min(calc(100% - 32px), 360px);
+  max-height: calc(100svh - 72px);
+  overflow-y: auto;
   background: var(--paper);
   color: var(--ink);
   padding: 16px;
@@ -1161,6 +1222,26 @@ input[type="text"]:focus {
 
 .name-slip[hidden] {
   display: none;
+}
+
+.name-slip.is-inline {
+  position: static;
+  left: auto;
+  top: auto;
+  transform: none;
+  width: 100%;
+  max-height: none;
+  margin-bottom: 4px;
+}
+
+.name-slip .btn.primary {
+  background: #1c1a16;
+  color: #f3eee0;
+}
+
+.name-slip .btn.ghost {
+  color: #1c1a16;
+  border-color: #5c564c;
 }
 
 .name-slip p {
@@ -1179,9 +1260,13 @@ input[type="text"]:focus {
   bottom: 0;
   transform: translateX(-50%);
   width: min(100%, 420px);
+  max-height: calc(100dvh - 12px);
+  max-height: calc(100svh - 12px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: #1c1914;
   border-top: 1px solid #3a342c;
-  padding: 18px 20px calc(20px + var(--safe-bottom));
+  padding: 18px 20px calc(28px + var(--safe-bottom));
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -1204,6 +1289,32 @@ input[type="text"]:focus {
   color: #c8bfb0;
   font-size: 13px;
   line-height: 1.6;
+}
+
+body:has(#app[data-screen="ticket"]) {
+  background:
+    radial-gradient(880px 520px at 50% 8%, #6a563c 0%, #3d3428 46%, #241e18 100%);
+}
+
+@media (max-width: 759px) {
+  #app {
+    padding-bottom: calc(124px + var(--safe-bottom));
+  }
+
+  .pet {
+    left: auto;
+    right: 8px;
+    width: 76px;
+    bottom: calc(6px + var(--safe-bottom));
+  }
+
+  .chip,
+  .suggest-chip,
+  .btn,
+  .actions,
+  .more-feelings {
+    scroll-margin-bottom: 128px;
+  }
 }
 
 @media (min-width: 720px) {
@@ -1259,8 +1370,18 @@ input[type="text"]:focus {
     opacity: 0.82;
   }
 
-  .receipt {
+  .receipt,
+  .receipt.is-out,
+  .scrap {
+    animation: none !important;
+  }
+
+  .receipt,
+  .receipt.is-out,
+  .receipt.is-shown {
     clip-path: none;
+    max-height: none;
+    overflow: visible;
   }
 
   .led.on {
