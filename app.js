@@ -486,7 +486,7 @@
   }
 
   function nightKey(date) {
-    var p = tokyoParts(date || new Date());
+    var p = shanghaiParts(date || new Date());
     return p.year + "-" + p.month + "-" + p.day;
   }
 
@@ -725,8 +725,11 @@
       });
   }
 
-  function isTokyoSunday(date) {
-    var p = tokyoParts(date || new Date());
+  /* 中国夜礼产品：票面/今晚边界/周结算一律 Asia/Shanghai，不用浏览器本地或 UTC。 */
+  var DISPLAY_TZ = "Asia/Shanghai";
+
+  function isShanghaiSunday(date) {
+    var p = shanghaiParts(date || new Date());
     return p.weekday === "Sun";
   }
 
@@ -734,9 +737,9 @@
     return WEEKDAY_ZH[p.weekday] || p.weekday || "—";
   }
 
-  function tokyoParts(date) {
+  function shanghaiParts(date) {
     var parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Asia/Tokyo",
+      timeZone: DISPLAY_TZ,
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -753,14 +756,15 @@
   }
 
   function weekStartKey(date) {
-    var p = tokyoParts(date);
-    var local = new Date(p.year + "-" + p.month + "-" + p.day + "T12:00:00");
-    var day = local.getDay();
+    var p = shanghaiParts(date);
+    /* 中午 +08:00，用 UTC 日历日推周一，避免浏览器本地时区干扰。 */
+    var noon = new Date(p.year + "-" + p.month + "-" + p.day + "T12:00:00+08:00");
+    var day = noon.getUTCDay();
     var offset = day === 0 ? -6 : 1 - day;
-    local.setDate(local.getDate() + offset);
-    var y = local.getFullYear();
-    var m = String(local.getMonth() + 1).padStart(2, "0");
-    var d = String(local.getDate()).padStart(2, "0");
+    noon.setUTCDate(noon.getUTCDate() + offset);
+    var y = noon.getUTCFullYear();
+    var m = String(noon.getUTCMonth() + 1).padStart(2, "0");
+    var d = String(noon.getUTCDate()).padStart(2, "0");
     return y + "-" + m + "-" + d;
   }
 
@@ -964,7 +968,7 @@
     var store = loadStore();
     var no = store.seq + 1;
     var now = new Date();
-    var p = tokyoParts(now);
+    var p = shanghaiParts(now);
     return {
       no: no,
       whoId: selectedId(whoChips),
@@ -974,6 +978,7 @@
       feeling: feeling.value.trim(),
       durationId: selectedId(durationChips),
       durationLabel: durationLabel(selectedId(durationChips)),
+      /* 票面只显示这两项（上海时区），不显示 createdAt 的 UTC ISO。 */
       clock: p.hour + ":" + p.minute,
       date: p.year + "-" + p.month + "-" + p.day,
       weekday: p.weekday,
@@ -1281,8 +1286,8 @@
     });
     function dayLabel(iso) {
       if (!iso) return "—";
-      var fake = new Date(iso + "T12:00:00+09:00");
-      var p = tokyoParts(fake);
+      var fake = new Date(iso + "T12:00:00+08:00");
+      var p = shanghaiParts(fake);
       return weekdayZhFromParts(p);
     }
     return {
@@ -1304,7 +1309,7 @@
   function renderDrawer() {
     var summary = weekSummary();
     if (weekBanner) {
-      weekBanner.hidden = !isTokyoSunday(new Date());
+      weekBanner.hidden = !isShanghaiSunday(new Date());
     }
     settleSlip.innerHTML =
       '<div class="settle-head">本周结算单</div>' +
