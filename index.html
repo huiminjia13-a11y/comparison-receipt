@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14120f">
+  <meta name="color-scheme" content="dark">
+  <title>今晚的比较小票</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button type="button" class="sound-toggle" id="sound-toggle" aria-pressed="true">声音 开</button>
+  <div id="app" data-screen="landing">
+    <header class="mast">夜间比较受理处</header>
+
+    <section class="screen" data-screen="landing" aria-labelledby="landing-title">
+      <p class="kicker">不是测试 · 不算命</p>
+      <h1 id="landing-title">今晚的比较小票</h1>
+      <p class="lede">把你刚才那口比较打成一张热敏小票，然后归档，或撕掉。</p>
+      <div class="hero-slip" aria-hidden="true">
+        <span class="hero-rule"></span>
+        <span>对象　　某个「同龄人」</span>
+        <span>合计　　注意力 × 1</span>
+        <span class="hero-rule"></span>
+        <span class="hero-total">已付，无法退款</span>
+      </div>
+      <button type="button" class="btn primary" id="btn-start">开始打票</button>
+      <button type="button" class="btn ghost" id="btn-open-drawer">本周抽屉</button>
+      <p class="fine">只存在这台设备上。没有账号。</p>
+      <p class="disclaimer">不是心理咨询、不算命、不保证心情变好。</p>
+    </section>
+
+    <section class="screen" data-screen="form" aria-labelledby="form-title">
+      <h1 id="form-title" class="screen-title">打票</h1>
+
+      <fieldset>
+        <legend>你刚才在和谁比？</legend>
+        <div class="chips" id="who-chips" role="radiogroup" aria-label="比较对象"></div>
+        <label class="field">
+          <span>写一下是谁（可不填）</span>
+          <input id="who-name" type="text" maxlength="20" placeholder="名字、称呼，或不写" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false">
+        </label>
+        <label class="field">
+          <span>对方有什么（可不填）</span>
+          <input id="they-have" type="text" maxlength="40" placeholder="房子 / 签证 / 对象 / 看起来很确定的人生" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false">
+        </label>
+      </fieldset>
+
+      <label class="field">
+        <span>这一口比较，你此刻的感觉（必填，填了才能打印）</span>
+        <input id="feeling" type="text" maxlength="40" placeholder="酸、空、来不及、说不清……随便写一行" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false">
+      </label>
+
+      <fieldset>
+        <legend>这口比较在你身上停了多久？</legend>
+        <div class="chips" id="duration-chips" role="radiogroup" aria-label="停留多久"></div>
+      </fieldset>
+
+      <button type="button" class="btn primary is-wait" id="btn-print" aria-disabled="true">先写感觉</button>
+      <p class="print-hint" id="print-hint" hidden>写一个词就行，比如：酸</p>
+      <button type="button" class="btn ghost" id="btn-form-back">返回</button>
+      <p class="disclaimer">不打分。不解释你是哪种人。</p>
+    </section>
+
+    <section class="screen" data-screen="ticket" aria-live="polite">
+      <div class="stage">
+        <div class="printer" id="printer" aria-hidden="true">
+          <div class="printer-top">
+            <span class="led" id="led"></span>
+            <span class="printer-label">THERMAL</span>
+          </div>
+          <div class="printer-slot"></div>
+        </div>
+        <p class="print-status" id="print-status">出票中</p>
+        <div class="receipt-stage" id="receipt-stage">
+          <article class="receipt" id="receipt"></article>
+        </div>
+      </div>
+      <div class="actions" id="ticket-actions" hidden>
+        <button type="button" class="btn primary" id="btn-archive">归档</button>
+        <button type="button" class="btn danger" id="btn-tear">撕掉</button>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="after" aria-labelledby="after-title">
+      <h1 id="after-title" class="screen-title"></h1>
+      <p class="lede" id="after-copy"></p>
+      <button type="button" class="btn primary" id="btn-again">再打一张</button>
+      <button type="button" class="btn ghost" id="btn-after-drawer">看本周抽屉</button>
+      <button type="button" class="btn ghost" id="btn-share-ticket" hidden>分享今晚的账单</button>
+    </section>
+
+    <section class="screen" data-screen="drawer" aria-labelledby="drawer-title">
+      <h1 id="drawer-title" class="screen-title">本周抽屉</h1>
+      <article class="settle" id="settle-slip" aria-label="本周结算单"></article>
+      <ul class="drawer-list" id="drawer-list"></ul>
+      <button type="button" class="btn primary" id="btn-drawer-new">打一张</button>
+      <button type="button" class="btn ghost" id="btn-drawer-home">回入口</button>
+      <p class="disclaimer">只列归档过的票。撕掉的只计数、不留内容。</p>
+    </section>
+  </div>
+
+  <aside id="pet" class="pet" data-mood="idle" data-pose="loaf" aria-hidden="true">
+    <svg viewBox="0 0 160 100" class="pet-svg">
+      <g class="pose-loaf">
+        <path class="pet-tail" d="M30 74 C8 70 2 48 20 38" fill="none" stroke="#4f3f34" stroke-width="9" stroke-linecap="round"/>
+        <path d="M30 74 C8 70 2 48 20 38" fill="none" stroke="#d7cfc3" stroke-width="4" stroke-linecap="round"/>
+        <ellipse class="pet-body" cx="78" cy="74" rx="52" ry="20" fill="#e6ddd1"/>
+        <g class="pet-stripes" fill="none" stroke="#4c3c32" stroke-width="3.2" stroke-linecap="round">
+          <path d="M46 64 q5 12 0 22"/>
+          <path d="M60 61 q6 14 0 26"/>
+          <path d="M74 60 q6 15 0 28"/>
+          <path d="M88 62 q5 14 0 24"/>
+          <path d="M102 66 q4 11 0 16"/>
+        </g>
+        <ellipse cx="46" cy="80" rx="16" ry="12" fill="#d4cbbf"/>
+        <ellipse cx="108" cy="89" rx="11" ry="6" fill="#efe8dc"/>
+        <ellipse cx="58" cy="90" rx="10" ry="5" fill="#efe8dc"/>
+        <g class="pet-head-group">
+          <circle cx="120" cy="50" r="23" fill="#ece4d8"/>
+          <path d="M108 38 L113 48 L120 38 L127 48 L132 38" fill="none" stroke="#3f322a" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M106 54 q9 2 8 12" fill="none" stroke="#4c3c32" stroke-width="2"/>
+          <path d="M134 54 q-9 2 -8 12" fill="none" stroke="#4c3c32" stroke-width="2"/>
+          <g class="pet-ear-l">
+            <path d="M102 40 L103 20 L118 38 Z" fill="#ece4d8"/>
+            <path d="M105 36 L106 24 L114 36 Z" fill="#c4a090"/>
+            <path d="M108 28 v8" stroke="#4c3c32" stroke-width="1.6"/>
+          </g>
+          <g class="pet-ear-r">
+            <path d="M124 36 L140 18 L140 42 Z" fill="#ece4d8"/>
+            <path d="M128 34 L136 22 L137 38 Z" fill="#c4a090"/>
+            <path d="M132 26 v8" stroke="#4c3c32" stroke-width="1.6"/>
+          </g>
+          <g class="pet-eye pet-eye-l">
+            <ellipse cx="111" cy="52" rx="4.4" ry="4.8" fill="#e19722"/>
+            <ellipse cx="111.6" cy="52" rx="1.7" ry="3.3" fill="#241c16"/>
+          </g>
+          <g class="pet-eye pet-eye-r">
+            <ellipse cx="128" cy="51" rx="4.4" ry="4.8" fill="#e19722"/>
+            <ellipse cx="128.6" cy="51" rx="1.7" ry="3.3" fill="#241c16"/>
+          </g>
+          <ellipse cx="119" cy="59" rx="2.4" ry="1.7" fill="#c47a7a"/>
+        </g>
+      </g>
+      <g class="pose-back">
+        <ellipse cx="82" cy="64" rx="30" ry="28" fill="#e6ddd1"/>
+        <g fill="none" stroke="#4c3c32" stroke-width="3.2" stroke-linecap="round">
+          <path d="M68 50 q0 18 0 30"/>
+          <path d="M82 48 q0 20 0 34"/>
+          <path d="M96 50 q0 18 0 30"/>
+        </g>
+        <circle cx="82" cy="34" r="18" fill="#ece4d8"/>
+        <path d="M70 30 L68 14 L82 26 Z" fill="#ece4d8"/>
+        <path d="M94 30 L98 14 L84 26 Z" fill="#ece4d8"/>
+        <path d="M72 22 L82 28 L92 22" fill="none" stroke="#3f322a" stroke-width="2"/>
+        <path class="pet-tail-curl" d="M56 72 C30 62 26 90 60 88" fill="none" stroke="#4f3f34" stroke-width="8" stroke-linecap="round"/>
+        <path d="M56 72 C30 62 26 90 60 88" fill="none" stroke="#d7cfc3" stroke-width="3.5" stroke-linecap="round"/>
+      </g>
+    </svg>
+    <span class="pet-name" id="pet-name-tag"></span>
+  </aside>
+
+  <div id="name-slip" class="name-slip" hidden>
+    <p>第一次见到它。要起个名字吗。</p>
+    <input id="pet-name-input" type="text" maxlength="8" placeholder="可不填" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false">
+    <button type="button" class="btn primary" id="btn-name-ok">就叫这个</button>
+    <button type="button" class="btn ghost" id="btn-name-skip">跳过</button>
+  </div>
+
+  <div id="share-sheet" class="share-sheet" hidden>
+    <p class="share-sheet-title">今晚的账单</p>
+    <p class="share-sheet-copy">对象和感觉打成 ████。没有排行榜。</p>
+    <button type="button" class="btn primary" id="btn-share-native">分享</button>
+    <button type="button" class="btn ghost" id="btn-share-copy">复制文案</button>
+    <button type="button" class="btn ghost" id="btn-share-download">下载图片</button>
+    <button type="button" class="btn ghost" id="btn-share-close">关闭</button>
+    <p class="fine" id="share-status" role="status"></p>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
