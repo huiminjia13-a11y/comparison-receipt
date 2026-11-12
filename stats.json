@@ -1,13 +1,13 @@
 {
   "namespace": "huiminjia13-comparison-receipt",
-  "updatedAt": "2026-11-12T04:46:05Z",
+  "updatedAt": "2026-11-12T13:26:36Z",
   "source": "abacus",
-  "opens": 63,
-  "prints": 48,
+  "opens": 73,
+  "prints": 54,
   "emotions": {
-    "酸": 11,
-    "不服": 10,
-    "想": 17,
+    "酸": 12,
+    "不服": 12,
+    "想": 20,
     "气": 14,
     "空": 10,
     "其他": 19
