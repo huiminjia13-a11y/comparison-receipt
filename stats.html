@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14120f">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  <title>用量统计 · 今晚的比较小票</title>
+  <link rel="icon" href="./favicon.ico?v=3" sizes="32x32">
+  <link rel="icon" href="./favicon.svg?v=3" type="image/svg+xml">
+  <link rel="shortcut icon" href="./favicon.ico?v=3">
+  <style>
+    :root {
+      --desk: #14120f;
+      --paper: #f3eee0;
+      --ink: #1c1a16;
+      --ink-faded: #4a453c;
+      --rule: #cfc6b4;
+      --focus: #e8c37a;
+      --muted: #8a8173;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(1000px 420px at 50% -8%, #2a2318 0%, transparent 62%),
+        var(--desk);
+      color: var(--paper);
+      font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    body {
+      min-height: 100dvh;
+      padding: calc(24px + var(--safe-top)) 20px calc(40px + var(--safe-bottom));
+    }
+    main {
+      width: min(100%, 420px);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .mast {
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: center;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-align: center;
+    }
+    .lede {
+      margin: 0;
+      color: #d8d0c0;
+      text-align: center;
+      line-height: 1.55;
+      font-size: 0.95rem;
+    }
+    .slip {
+      background: var(--paper);
+      color: var(--ink);
+      border-radius: 2px;
+      padding: 22px 20px 18px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      animation: rise 0.45s ease;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: none; }
+    }
+    .slip-head {
+      text-align: center;
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin-bottom: 4px;
+    }
+    .slip-sub {
+      text-align: center;
+      color: var(--ink-faded);
+      font-size: 0.78rem;
+      margin-bottom: 14px;
+    }
+    .dash {
+      border: 0;
+      border-top: 1px dashed var(--rule);
+      margin: 12px 0;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.95rem;
+      line-height: 1.7;
+    }
+    .row .k { color: var(--ink-faded); }
+    .row .v { font-weight: 600; }
+    .bucket {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px 12px;
+      align-items: center;
+      font-size: 0.92rem;
+    }
+    .bar {
+      grid-column: 1 / -1;
+      height: 6px;
+      background: #ddd4c2;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .bar > span {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: #c9a227;
+      transition: width 0.5s ease;
+    }
+    .foot {
+      color: var(--ink-faded);
+      font-size: 0.75rem;
+      line-height: 1.5;
+      text-align: center;
+      margin-top: 4px;
+    }
+    .status {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+      min-height: 1.2em;
+    }
+    .status[data-state="err"] { color: #e8a0a0; }
+    .nav {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    a.btn {
+      display: inline-block;
+      text-decoration: none;
+      color: var(--desk);
+      background: var(--paper);
+      border: 1px solid #cfc6b4;
+      padding: 10px 16px;
+      font-size: 0.9rem;
+      border-radius: 2px;
+    }
+    a.btn.ghost {
+      color: var(--paper);
+      background: transparent;
+      border-color: #5a5348;
+    }
+    .fine {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.55;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="mast">Owner · read-only</p>
+    <h1>用量统计</h1>
+    <p class="lede">打开 / 打票 / 粗情绪桶。同源读取，大陆可开。不含任何票面。</p>
+
+    <article class="slip" aria-live="polite">
+      <div class="slip-head">今晚的比较小票</div>
+      <div class="slip-sub">匿名累计 · 只读镜像</div>
+      <hr class="dash">
+      <div class="row"><span class="k">打开</span><span class="v" id="opens">—</span></div>
+      <div class="row"><span class="k">打票</span><span class="v" id="prints">—</span></div>
+      <hr class="dash">
+      <div class="bucket" id="emotions"></div>
+      <hr class="dash">
+      <p class="foot" id="meta">正在读取 stats.json…</p>
+    </article>
+
+    <p class="status" id="status" data-state="loading">加载中</p>
+    <div class="nav">
+      <a class="btn" href="./">回小票</a>
+      <a class="btn ghost" href="./stats.json">原始 JSON</a>
+    </div>
+    <p class="fine">增量仍由 Abacus 记。本页只展示定时同步到本站的快照，方便国内打开。不存票面内容。</p>
+  </main>
+  <script>
+    (function () {
+      "use strict";
+      var ORDER = ["酸", "不服", "想", "气", "空", "其他"];
+      var opensEl = document.getElementById("opens");
+      var printsEl = document.getElementById("prints");
+      var emoEl = document.getElementById("emotions");
+      var metaEl = document.getElementById("meta");
+      var statusEl = document.getElementById("status");
+
+      function fmt(n) {
+        var x = Number(n);
+        if (!isFinite(x) || x < 0) return "0";
+        return String(Math.floor(x));
+      }
+
+      function setStatus(text, state) {
+        statusEl.textContent = text;
+        statusEl.setAttribute("data-state", state || "ok");
+      }
+
+      function render(data) {
+        var opens = Number(data.opens) || 0;
+        var prints = Number(data.prints) || 0;
+        var emotions = data.emotions && typeof data.emotions === "object" ? data.emotions : {};
+        opensEl.textContent = fmt(opens);
+        printsEl.textContent = fmt(prints);
+
+        var totalEmo = 0;
+        ORDER.forEach(function (k) {
+          totalEmo += Number(emotions[k]) || 0;
+        });
+        emoEl.innerHTML = "";
+        ORDER.forEach(function (k) {
+          var n = Number(emotions[k]) || 0;
+          var pct = totalEmo > 0 ? Math.round((n / totalEmo) * 100) : 0;
+          var label = document.createElement("span");
+          label.textContent = k;
+          var count = document.createElement("strong");
+          count.textContent = fmt(n);
+          var pctEl = document.createElement("span");
+          pctEl.style.color = "#4a453c";
+          pctEl.textContent = pct + "%";
+          var bar = document.createElement("div");
+          bar.className = "bar";
+          var fill = document.createElement("span");
+          fill.style.width = pct + "%";
+          bar.appendChild(fill);
+          emoEl.appendChild(label);
+          emoEl.appendChild(count);
+          emoEl.appendChild(pctEl);
+          emoEl.appendChild(bar);
+        });
+
+        var when = data.updatedAt ? String(data.updatedAt) : "未知时间";
+        metaEl.textContent =
+          "同步于 " + when + " · 来源 " + (data.source || "stats.json") +
+          " · 命名空间 " + (data.namespace || "—");
+        setStatus("已加载同源快照", "ok");
+      }
+
+      fetch("./stats.json", { cache: "no-store", credentials: "omit" })
+        .then(function (res) {
+          if (!res.ok) throw new Error("stats " + res.status);
+          return res.json();
+        })
+        .then(render)
+        .catch(function () {
+          setStatus("读不到 stats.json。请稍后刷新，或等 GitHub Action 同步。", "err");
+          metaEl.textContent = "同源快照暂不可用。Abacus 仍是增量源，但国内浏览器可能打不开 Abacus。";
+        });
+    })();
+  </script>
+</body>
+</html>
