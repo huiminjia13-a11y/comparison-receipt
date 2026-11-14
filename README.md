@@ -63,3 +63,9 @@ Abacus 仍是增量源（CountAPI 继任），命名空间 `huiminjia13-comparis
 ## 这不是什么
 
 不是心理咨询、不算命、不保证心情变好。前任只是可能想到的人之一。不要公开发布、不要买域名。
+
+## 多AI协作
+
+协作方式见 [`ai/多AI协作指令.md`](ai/多AI协作指令.md)。
+AI 从 [`ai/TASKS.md`](ai/TASKS.md) 领取任务。
+完工后把结果写进 [`ai/LOG.md`](ai/LOG.md)。
