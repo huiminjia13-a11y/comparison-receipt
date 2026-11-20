@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14120f">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  <title>今晚的比较小票</title>
+  <link rel="icon" href="./favicon.ico?v=3" sizes="32x32">
+  <link rel="icon" href="./favicon.svg?v=3" type="image/svg+xml">
+  <link rel="shortcut icon" href="./favicon.ico?v=3">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      try {
+        /* Prefer HTTPS on every host (Pages / mirrors / local http server). */
+        if (location.protocol === "http:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+          location.replace("https://" + location.host + location.pathname + location.search + location.hash);
+        }
+        /* Pages project path (/comparison-receipt/) — keep favicon rooted to this app. */
+        var base = location.pathname.replace(/\/[^/]*$/, "/");
+        if (!base || base === "/") base = "./";
+        var links = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+        for (var i = 0; i < links.length; i++) {
+          var href = links[i].getAttribute("href") || "";
+          var file = href.replace(/^\.\//, "").replace(/^\//, "");
+          if (/^favicon\./.test(file)) links[i].setAttribute("href", base + file);
+        }
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
+</head>
+<body>
+  <button type="button" class="sound-toggle" id="sound-toggle" aria-pressed="true">声音 开</button>
+  <div id="app" data-screen="landing">
+    <header class="mast">夜间小票受理处</header>
+
+    <section class="screen" data-screen="landing" aria-labelledby="landing-title">
+      <h1 id="landing-title">今晚的比较小票</h1>
+      <p class="lede">今天你想到了谁？你不需要放下，先打一张票。</p>
+      <button type="button" class="btn primary" id="btn-start">打一张不需要解释的票</button>
+      <p class="trust">无账号 · 默认本机保存 · 不上传票面原文 · 比较可以空着</p>
+      <div id="revisit-card" class="revisit-card" hidden>
+        <p class="revisit-kicker">昨晚最后一张归档</p>
+        <p class="revisit-brief" id="revisit-brief"></p>
+        <p class="revisit-ask">现在还成立吗？</p>
+        <div class="revisit-actions" role="group" aria-label="现在还成立吗">
+          <button type="button" class="btn ghost revisit-btn" data-revisit="holds">还成立</button>
+          <button type="button" class="btn ghost revisit-btn" data-revisit="faded">淡了</button>
+          <button type="button" class="btn ghost revisit-btn" data-revisit="gone">已经过去</button>
+        </div>
+        <p class="fine" id="revisit-ack" hidden></p>
+      </div>
+      <button type="button" class="btn ghost" id="btn-open-drawer">本周抽屉</button>
+      <p class="plaza" id="plaza-line" aria-live="polite">本机今晚还没打 · 正在连广场计数…</p>
+      <p class="fine plaza-note">仅统计次数，不含原文、名字和感觉。</p>
+      <p class="disclaimer">不是心理咨询、不算命、不保证心情变好。</p>
+    </section>
+
+    <section class="screen" data-screen="form" aria-labelledby="form-title">
+      <h1 id="form-title" class="screen-title">打票</h1>
+
+      <fieldset id="who-block">
+        <legend>今天你想到了谁</legend>
+        <label class="field">
+          <span>我想到 <em class="opt-tag">自由输入 · 可不填</em></span>
+          <input id="who-name" type="text" maxlength="20" placeholder="名字、称呼，或不写" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
+          <div class="suggest-chips" id="who-name-suggest" data-for="who-name" aria-label="常用称呼"></div>
+        </label>
+        <p class="field-split-label">这更像 <em class="opt-tag">分类 · 可不选</em></p>
+        <div class="chips" id="who-chips" role="radiogroup" aria-label="这更像"></div>
+        <p class="thought-n-hint" id="thought-n-hint" hidden></p>
+        <p class="fine">前公司、那个 offer、过去的自己、突然冒出来的人……前任只是其中一种。只选分类时，票上只印分类。</p>
+      </fieldset>
+
+      <label class="field">
+        <span>此刻的感觉（可不填。想、气、不服，都能写在同一行）</span>
+        <input id="feeling" type="text" maxlength="40" placeholder="想 / 气 / 又气又想 / 不服" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
+        <div class="suggest-chips" id="feeling-suggest" data-for="feeling" aria-label="常用感觉"></div>
+        <div class="pinyin-box" id="feeling-pinyin" hidden>
+          <p class="pinyin-tip">拼音候选（离线）· 点一下填入</p>
+          <div class="suggest-chips" id="feeling-pinyin-list" role="listbox" aria-label="拼音候选"></div>
+        </div>
+        <p class="cjk-tip">没中文输入法时：点词填入；感觉栏可再点别的词拼一句；也可打拼音选候选，或手机打好粘贴。</p>
+      </label>
+
+      <fieldset>
+        <legend>这念头在你身上停了多久？（可不选）</legend>
+        <div class="chips" id="duration-chips" role="radiogroup" aria-label="停留多久"></div>
+      </fieldset>
+
+      <fieldset class="optional-bite" id="compare-optional">
+        <legend>再写一口比较 <span class="opt-tag">可不填 · 空着也能打票</span></legend>
+        <p class="opt-lede">填完「想到了谁」之后，想比就比一口；空着照样出票。</p>
+        <label class="field">
+          <span>比什么 / 对方有什么（可不填）</span>
+          <input id="they-have" type="text" maxlength="40" placeholder="头衔 / 胆子 / 钱 / 或不写" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false" enterkeyhint="done">
+          <div class="suggest-chips" id="they-have-suggest" data-for="they-have" aria-label="比较一口常用词"></div>
+        </label>
+      </fieldset>
+
+      <button type="button" class="btn primary" id="btn-print" aria-disabled="false">打印</button>
+      <p class="print-hint" id="print-hint" hidden>写一下「我想到」，或选一个「这更像」</p>
+      <button type="button" class="btn ghost" id="btn-form-back">返回</button>
+      <p class="disclaimer">不打分。不解释你是哪种人。</p>
+    </section>
+
+    <section class="screen" data-screen="ticket" aria-live="polite">
+      <div class="stage">
+        <div class="printer" id="printer" aria-hidden="true">
+          <div class="printer-top">
+            <span class="led" id="led"></span>
+            <span class="printer-label">THERMAL</span>
+          </div>
+          <div class="printer-slot"></div>
+        </div>
+        <p class="print-status" id="print-status">出票中</p>
+        <div class="receipt-stage" id="receipt-stage">
+          <article class="receipt" id="receipt"></article>
+        </div>
+      </div>
+      <p class="tonight-chip" id="tonight-chip" hidden></p>
+      <p class="soft-ack" id="soft-ack" hidden aria-live="polite"></p>
+      <div class="actions" id="ticket-actions" hidden>
+        <button type="button" class="btn primary" id="btn-export-card">一键晒图</button>
+        <button type="button" class="btn ghost" id="btn-archive">归档</button>
+        <button type="button" class="btn danger" id="btn-tear">撕掉</button>
+      </div>
+      <!-- 起名小卡在归档/撕掉下方：不挡票顶，也不挡操作 -->
+      <div id="name-slip" class="name-slip" hidden>
+        <p>第一次见到这只橘猫。要起个名字吗。</p>
+        <input id="pet-name-input" type="text" maxlength="8" placeholder="可不填" autocomplete="off" lang="zh-CN" inputmode="text" spellcheck="false">
+        <div class="name-slip-actions">
+          <button type="button" class="btn primary" id="btn-name-ok">就叫这个</button>
+          <button type="button" class="btn ghost" id="btn-name-skip">跳过</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="after" aria-labelledby="after-title">
+      <h1 id="after-title" class="screen-title"></h1>
+      <p class="lede" id="after-copy"></p>
+      <p class="after-invite" id="after-invite" hidden>还想到别的吗？可以再打一张，不勉强。</p>
+      <button type="button" class="btn primary" id="btn-again">再打一张</button>
+      <button type="button" class="btn ghost" id="btn-after-home">先这样</button>
+      <button type="button" class="btn ghost" id="btn-after-drawer">看本周抽屉</button>
+      <button type="button" class="btn ghost" id="btn-share-ticket" hidden>分享今晚的账单</button>
+    </section>
+
+    <section class="screen" data-screen="drawer" aria-labelledby="drawer-title">
+      <h1 id="drawer-title" class="screen-title">本周抽屉</h1>
+      <p class="week-banner" id="week-banner" hidden>今天周日。可以晒出本周总票。</p>
+      <article class="settle" id="settle-slip" aria-label="本周结算单"></article>
+      <ul class="drawer-list" id="drawer-list"></ul>
+      <button type="button" class="btn primary" id="btn-week-bill">导出本周总票</button>
+      <button type="button" class="btn ghost" id="btn-drawer-new">打一张</button>
+      <button type="button" class="btn ghost" id="btn-drawer-home">回入口</button>
+      <p class="disclaimer">只列归档过的票。撕掉的只计数、不留内容。周总票默认打码，可选手动完整。</p>
+    </section>
+  </div>
+
+  <aside id="pet" class="pet" data-mood="idle" data-pose="loaf" aria-hidden="true">
+    <svg viewBox="0 0 176 112" class="pet-svg" role="img">
+      <defs>
+        <linearGradient id="orange-fur" x1="8%" y1="10%" x2="90%" y2="95%">
+          <stop offset="0%" stop-color="#f6b045"/>
+          <stop offset="40%" stop-color="#e87820"/>
+          <stop offset="78%" stop-color="#c45a12"/>
+          <stop offset="100%" stop-color="#8a3a0c"/>
+        </linearGradient>
+        <linearGradient id="orange-fur-dark" x1="20%" y1="0%" x2="80%" y2="100%">
+          <stop offset="0%" stop-color="#f0a030"/>
+          <stop offset="55%" stop-color="#d46818"/>
+          <stop offset="100%" stop-color="#9a4010"/>
+        </linearGradient>
+        <radialGradient id="orange-eye" cx="38%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#ffe08a"/>
+          <stop offset="45%" stop-color="#e8a020"/>
+          <stop offset="100%" stop-color="#8a4e0e"/>
+        </radialGradient>
+        <linearGradient id="orange-chest" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#fff6ea"/>
+          <stop offset="100%" stop-color="#f0e0cc"/>
+        </linearGradient>
+      </defs>
+      <!-- 橘猫：橘色底、深色条纹、琥珀眼、瘦长、警惕 -->
+      <g class="pose-loaf">
+        <!-- 尾：橘色环纹 -->
+        <g class="pet-tail">
+          <path d="M34 80 C10 76 0 54 16 40 C26 32 34 42 30 52 C26 62 34 72 40 78" fill="none" stroke="#5a2410" stroke-width="9" stroke-linecap="round"/>
+          <path d="M34 80 C10 76 0 54 16 40 C26 32 34 42 30 52 C26 62 34 72 40 78" fill="none" stroke="#f0a040" stroke-width="3.4" stroke-linecap="round"/>
+          <path d="M18 46 q4 6 2 12" fill="none" stroke="#3a1808" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M22 58 q3 5 1 10" fill="none" stroke="#3a1808" stroke-width="2" stroke-linecap="round"/>
+        </g>
+        <!-- 瘦长趴姿：后臀隆起、腰细 -->
+        <g class="pet-body">
+          <path d="M42 78
+            C38 68 48 58 62 56
+            C78 54 96 52 112 56
+            C128 60 138 68 140 78
+            C142 88 132 94 118 96
+            C96 99 68 99 52 94
+            C44 91 40 86 42 78 Z" fill="url(#orange-fur)"/>
+          <path d="M58 60 C74 56 100 55 122 62 C118 70 96 72 72 70 C62 68 56 64 58 60 Z" fill="#ffc060" opacity="0.28"/>
+          <!-- 后臀阴影 -->
+          <ellipse cx="54" cy="82" rx="16" ry="12" fill="#8a3a0c" opacity="0.22"/>
+        </g>
+        <!-- 深色条纹：断纹 + 侧条 -->
+        <g class="pet-stripes" fill="none" stroke="#4a1c08" stroke-linecap="round" opacity="0.95">
+          <path d="M52 62 q7 16 1 28" stroke-width="3.6"/>
+          <path d="M66 58 q8 18 1 32" stroke-width="3.8"/>
+          <path d="M80 56 q8 20 0 34" stroke-width="4"/>
+          <path d="M94 57 q7 18 0 30" stroke-width="3.6"/>
+          <path d="M108 60 q6 15 0 24" stroke-width="3.4"/>
+          <path d="M120 66 q4 10 0 16" stroke-width="2.8"/>
+          <path d="M58 70 q4 9 0 14" stroke-width="2"/>
+          <path d="M86 68 q5 11 0 16" stroke-width="2.1"/>
+          <path d="M102 70 q3 8 0 12" stroke-width="1.8"/>
+        </g>
+        <!-- 白胸口 + 爪尖 -->
+        <ellipse cx="118" cy="88" rx="16" ry="10" fill="url(#orange-chest)"/>
+        <ellipse cx="128" cy="93" rx="9" ry="5" fill="#fff4e6"/>
+        <ellipse cx="70" cy="94" rx="8" ry="4.5" fill="#fff4e6"/>
+        <ellipse cx="52" cy="90" rx="7" ry="4" fill="#fff4e6" opacity="0.9"/>
+        <!-- 头 -->
+        <g class="pet-head-group">
+          <ellipse cx="132" cy="46" rx="22" ry="19.5" fill="url(#orange-fur-dark)"/>
+          <!-- 颊毛阴影 -->
+          <ellipse cx="118" cy="54" rx="7" ry="9" fill="#8a3a0c" opacity="0.18"/>
+          <ellipse cx="146" cy="53" rx="6" ry="8" fill="#8a3a0c" opacity="0.16"/>
+          <!-- 经典 M 额纹 -->
+          <path d="M118 34 L122 45 L132 32 L142 45 L146 34" fill="none" stroke="#2a1006" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M126 40 L132 48 L138 40" fill="none" stroke="#2a1006" stroke-width="1.6" stroke-linecap="round"/>
+          <!-- 颊纹 -->
+          <path d="M116 50 q9 3 8 13" fill="none" stroke="#4a1c08" stroke-width="1.9"/>
+          <path d="M148 49 q-9 3 -8 13" fill="none" stroke="#4a1c08" stroke-width="1.9"/>
+          <g class="pet-ear-l">
+            <path d="M114 38 L110 12 L128 34 Z" fill="#e87820"/>
+            <path d="M116 34 L114 16 L124 32 Z" fill="#8a3a28"/>
+            <path d="M118 22 v8" stroke="#2a1006" stroke-width="1.5"/>
+          </g>
+          <g class="pet-ear-r">
+            <path d="M138 32 L158 8 L154 40 Z" fill="#e87820"/>
+            <path d="M142 30 L152 12 L150 36 Z" fill="#8a3a28"/>
+            <path d="M146 18 v9" stroke="#2a1006" stroke-width="1.5"/>
+          </g>
+          <!-- 琥珀 / 铜眼：警惕细长 -->
+          <g class="pet-eye pet-eye-l">
+            <ellipse cx="124" cy="48" rx="5" ry="5.4" fill="url(#orange-eye)"/>
+            <ellipse cx="124.7" cy="48.3" rx="1.7" ry="3.6" fill="#140e0a"/>
+            <circle cx="122.6" cy="46.4" r="1" fill="#fff0c0" opacity="0.65"/>
+          </g>
+          <g class="pet-eye pet-eye-r">
+            <ellipse cx="142" cy="47" rx="5" ry="5.4" fill="url(#orange-eye)"/>
+            <ellipse cx="142.7" cy="47.3" rx="1.7" ry="3.6" fill="#140e0a"/>
+            <circle cx="140.6" cy="45.4" r="1" fill="#fff0c0" opacity="0.65"/>
+          </g>
+          <ellipse cx="133" cy="56" rx="2.4" ry="1.6" fill="#a04838"/>
+          <path d="M133 57.5 L133 60.5" stroke="#2a1006" stroke-width="1.15"/>
+          <path d="M133 60.5 q-5 3.5 -11 1" fill="none" stroke="#2a1006" stroke-width="1" opacity="0.7"/>
+          <path d="M133 60.5 q5 3.5 11 1" fill="none" stroke="#2a1006" stroke-width="1" opacity="0.7"/>
+          <!-- 胡须 -->
+          <g class="pet-whiskers" fill="none" stroke="#f5e6d0" stroke-width="0.9" stroke-linecap="round" opacity="0.75">
+            <path d="M118 58 L102 56"/>
+            <path d="M118 61 L100 62"/>
+            <path d="M118 64 L104 68"/>
+            <path d="M148 57 L164 55"/>
+            <path d="M148 60 L166 61"/>
+            <path d="M148 63 L162 68"/>
+          </g>
+        </g>
+      </g>
+      <g class="pose-back">
+        <ellipse cx="90" cy="68" rx="29" ry="31" fill="url(#orange-fur)"/>
+        <g fill="none" stroke="#4a1c08" stroke-width="3.4" stroke-linecap="round">
+          <path d="M76 50 q0 22 0 36"/>
+          <path d="M90 48 q0 24 0 40"/>
+          <path d="M104 50 q0 22 0 36"/>
+          <path d="M82 58 q0 14 0 20" stroke-width="2"/>
+          <path d="M98 58 q0 14 0 20" stroke-width="2"/>
+        </g>
+        <ellipse cx="90" cy="94" rx="17" ry="7.5" fill="url(#orange-chest)" opacity="0.85"/>
+        <circle cx="90" cy="34" r="17.5" fill="url(#orange-fur-dark)"/>
+        <path d="M78 30 L72 10 L90 26 Z" fill="#e87820"/>
+        <path d="M102 30 L110 10 L92 26 Z" fill="#e87820"/>
+        <path d="M76 18 L90 28 L104 18" fill="none" stroke="#2a1006" stroke-width="2.2" stroke-linecap="round"/>
+        <path class="pet-tail-curl" d="M62 76 C30 62 26 96 66 94" fill="none" stroke="#5a2410" stroke-width="8.5" stroke-linecap="round"/>
+        <path d="M62 76 C30 62 26 96 66 94" fill="none" stroke="#f0a040" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="M42 78 q4 6 2 12" fill="none" stroke="#3a1808" stroke-width="2" stroke-linecap="round"/>
+      </g>
+    </svg>
+    <span class="pet-name" id="pet-name-tag"></span>
+  </aside>
+
+  <div id="share-sheet" class="share-sheet" hidden>
+    <p class="share-sheet-title" id="share-sheet-title">晒图卡</p>
+    <p class="share-sheet-copy" id="share-sheet-copy">默认公开安全：名字与感觉打成 ████，只留日期、票号、章与金句。一键下载 PNG，不用自己裁。</p>
+    <div class="share-mode" role="radiogroup" aria-label="晒图模式">
+      <button type="button" class="share-mode-btn is-on" id="share-mode-public" data-mode="public" aria-pressed="true">公开安全</button>
+      <button type="button" class="share-mode-btn" id="share-mode-private" data-mode="private" aria-pressed="false">本机完整</button>
+    </div>
+    <button type="button" class="btn primary" id="btn-share-download">下载晒图 PNG</button>
+    <button type="button" class="btn ghost" id="btn-share-native">系统分享</button>
+    <button type="button" class="btn ghost" id="btn-share-copy">复制文案</button>
+    <button type="button" class="btn ghost" id="btn-share-close">关闭</button>
+    <p class="fine" id="share-status" role="status"></p>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
