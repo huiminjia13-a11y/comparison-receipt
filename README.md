@@ -66,6 +66,5 @@ Abacus 仍是增量源（CountAPI 继任），命名空间 `huiminjia13-comparis
 
 ## 多AI协作
 
-协作方式见 [`ai/多AI协作指令.md`](ai/多AI协作指令.md)。
-AI 从 [`ai/TASKS.md`](ai/TASKS.md) 领取任务。
-完工后把结果写进 [`ai/LOG.md`](ai/LOG.md)。
+协作规则在 [`ai/多AI协作指令.md`](ai/多AI协作指令.md)。
+AI 从 [`ai/TASKS.md`](ai/TASKS.md) 领任务，做完把结果追加到 [`ai/LOG.md`](ai/LOG.md)。
