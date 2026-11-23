@@ -1,16 +1,16 @@
 {
   "namespace": "huiminjia13-comparison-receipt",
-  "updatedAt": "2026-11-23T11:30:12Z",
+  "updatedAt": "2026-11-23T22:50:24Z",
   "source": "abacus",
-  "opens": 88,
-  "prints": 57,
+  "opens": 92,
+  "prints": 59,
   "emotions": {
     "酸": 13,
-    "不服": 14,
+    "不服": 17,
     "想": 22,
     "气": 15,
-    "空": 11,
-    "其他": 21
+    "空": 12,
+    "其他": 22
   },
   "note": "Anonymous lifetime totals only. No ticket content. Abacus remains source of truth for increments."
 }
